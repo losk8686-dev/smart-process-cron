@@ -1,0 +1,13 @@
+{
+  "name": "smart-process-cron",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3",
+    "axios": "^1.7.2"
+  }
+}

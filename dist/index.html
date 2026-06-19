@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Process Cron</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #1a1a1a; line-height: 1.6; }
+    .container { max-width: 800px; margin: 0 auto; padding: 2rem 1rem; }
+    h1 { text-align: center; color: #1a73e8; margin-bottom: 2rem; font-size: 2rem; font-weight: 700; }
+    .card { background: #fff; border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e8eaed; }
+    h2 { color: #202124; margin-bottom: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+    .form-group { margin-bottom: 1.25rem; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #5f6368; font-size: 0.875rem; }
+    input[type="text"], input[type="number"], input[type="time"] { 
+      width: 100%; padding: 0.75rem 1rem; border: 2px solid #dadce0; border-radius: 8px; 
+      font-size: 1rem; transition: all 0.2s; background: #fff; 
+    }
+    input:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.1); }
+    input[type="checkbox"] { width: auto; margin-right: 0.5rem; transform: scale(1.2); }
+    .checkbox-label { display: flex; align-items: center; cursor: pointer; }
+    button { 
+      background: #1a73e8; color: #fff; border: none; padding: 0.875rem 2rem; 
+      border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; 
+      width: 100%; transition: all 0.2s; margin-top: 1rem;
+    }
+    button:hover { background: #1557b0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,115,232,0.3); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .status { padding: 1rem; border-radius: 8px; margin-top: 1rem; font-size: 0.875rem; }
+    .status.success { background: #e6f4ea; color: #1e8e3e; border: 1px solid #34a853; }
+    .status.error { background: #fce8e8; color: #d93025; border: 1px solid #ea4335; }
+    .info { background: #e8f0fe; color: #1967d2; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.875rem; }
+    .loading { text-align: center; color: #5f6368; padding: 2rem; }
+    .log-entry { padding: 0.75rem; border-bottom: 1px solid #e8eaed; }
+    .log-entry:last-child { border-bottom: none; }
+    .timestamp { color: #5f6368; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
