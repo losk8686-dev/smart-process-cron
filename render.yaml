@@ -1,9 +1,11 @@
 services:
   - type: web
     name: smart-process-cron
-    runtime: node
+    env: node
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
