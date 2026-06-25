@@ -32,11 +32,15 @@ function App() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
 
-  // Функция для создания заголовков с вебхуком
-  const getHeaders = () => ({
-    'Content-Type': 'application/json',
-    'X-Webhook-URL': webhook
-  });
+  // Функция для создания заголовков с вебхуком (кодируем URL)
+  const getHeaders = () => {
+    // Кодируем URL для безопасной передачи в заголовке
+    const encodedWebhook = btoa(unescape(encodeURIComponent(webhook)));
+    return {
+      'Content-Type': 'application/json',
+      'X-Webhook-Encoded': encodedWebhook
+    };
+  };
 
   useEffect(() => {
     if (webhook) {

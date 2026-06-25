@@ -27,6 +27,23 @@ async function saveConfig(config) {
   await fs.writeFile(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
+// Функция для получения вебхука из заголовка
+function getWebhookFromHeaders(req) {
+  const encoded = req.headers['x-webhook-encoded'];
+  if (!encoded) {
+    return null;
+  }
+  
+  try {
+    // Декодируем base64
+    const decoded = decodeURIComponent(escape(Buffer.from(encoded, 'base64').toString('utf8')));
+    return decoded;
+  } catch (error) {
+    console.error('Error decoding webhook:', error);
+    return null;
+  }
+}
+
 // API для работы с Битрикс24 через вебхук
 async function callBitrixApi(webhook, method, params = {}) {
   if (!webhook) {
@@ -51,9 +68,9 @@ async function callBitrixApi(webhook, method, params = {}) {
 // Получение стадий для ЭДО (entityTypeId: 138)
 app.get('/api/stages/:entityTypeId', async (req, res) => {
   try {
-    const webhook = req.headers['x-webhook-url'];
+    const webhook = getWebhookFromHeaders(req);
     if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-URL header' });
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
     }
     
     const { entityTypeId } = req.params;
@@ -86,9 +103,9 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
 // Получение бизнес-процессов
 app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   try {
-    const webhook = req.headers['x-webhook-url'];
+    const webhook = getWebhookFromHeaders(req);
     if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-URL header' });
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
     }
     
     const { entityTypeId } = req.params;
@@ -193,10 +210,10 @@ app.delete('/api/tasks/:id', async (req, res) => {
 app.post('/api/tasks/:id/run', async (req, res) => {
   try {
     const config = await loadConfig();
-    const webhook = req.headers['x-webhook-url'];
+    const webhook = getWebhookFromHeaders(req);
     
     if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-URL header' });
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
     }
     
     const taskId = parseInt(req.params.id);
