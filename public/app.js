@@ -7,7 +7,6 @@ const EDO_NAME = 'ЭДО';
 // Функция для маскирования вебхука - скрываем токен после /rest/1/
 function maskWebhook(url) {
   if (!url) return '';
-  // Заменяем токен после /rest/1/ на ****
   return url.replace(/(\/rest\/\d+\/)[^\/]+/, '$1****');
 }
 
@@ -21,10 +20,10 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
 
   // Функция для создания заголовков с вебхуком (кодируем URL)
   const getHeaders = () => {
-    // Кодируем URL для безопасной передачи в заголовке
     const encodedWebhook = btoa(unescape(encodeURIComponent(webhook)));
     return {
       'Content-Type': 'application/json',
@@ -40,8 +39,10 @@ function App() {
 
   const loadData = async () => {
     setLoading(true);
+    setDebugInfo('Начинаем загрузку...');
     try {
-      // Загружаем задачи и логи (не требуют вебхук)
+      // Загружаем задачи и логи
+      setDebugInfo('Загружаем задачи и логи...');
       const [tasksRes, logsRes] = await Promise.all([
         fetch('/api/tasks'),
         fetch('/api/logs')
@@ -52,31 +53,51 @@ function App() {
 
       setTasks(tasksData);
       setLogs(logsData);
+      setDebugInfo('Задачи: ' + tasksData.length + ', Логи: ' + logsData.length);
 
-      // Загружаем стадии с вебхуком в заголовке
+      // Загружаем стадии
+      setDebugInfo('Загружаем стадии...');
       const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID, {
         headers: getHeaders()
       });
       const stagesData = await stagesRes.json();
       
+      setDebugInfo('Стадии ответ: ' + JSON.stringify(stagesData).substring(0, 200));
+      
       if (stagesData.error) {
-        throw new Error(stagesData.error);
+        throw new Error('Стадии: ' + stagesData.error);
       }
-      setStages(stagesData);
+      
+      if (Array.isArray(stagesData)) {
+        setStages(stagesData);
+        setDebugInfo('Стадии загружены: ' + stagesData.length);
+      } else {
+        setDebugInfo('Стадии не массив: ' + typeof stagesData);
+      }
 
-      // Загружаем бизнес-процессы с вебхуком в заголовке
+      // Загружаем бизнес-процессы
+      setDebugInfo('Загружаем БП...');
       const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID, {
         headers: getHeaders()
       });
       const bpData = await bpRes.json();
       
+      setDebugInfo('БП ответ: ' + JSON.stringify(bpData).substring(0, 200));
+      
       if (bpData.error) {
-        throw new Error(bpData.error);
+        throw new Error('БП: ' + bpData.error);
       }
-      setBusinessProcesses(bpData);
+      
+      if (Array.isArray(bpData)) {
+        setBusinessProcesses(bpData);
+        setDebugInfo('БП загружены: ' + bpData.length + ', Стадии: ' + stagesData.length);
+      } else {
+        setDebugInfo('БП не массив: ' + typeof bpData);
+      }
     } catch (err) {
       console.error('Error loading data:', err);
       setStatus({ type: 'error', message: 'Ошибка загрузки: ' + err.message });
+      setDebugInfo('Ошибка: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -192,6 +213,20 @@ function App() {
     ),
 
     status.message && React.createElement('div', { className: 'status ' + status.type, style: { marginBottom: '20px' } }, status.message),
+    
+    debugInfo && React.createElement('div', { 
+      style: { 
+        padding: '10px', 
+        background: '#f0f0f0', 
+        marginBottom: '10px', 
+        fontSize: '12px', 
+        fontFamily: 'monospace',
+        borderRadius: '4px'
+      } 
+    }, 
+      React.createElement('strong', null, 'Debug: '), 
+      debugInfo
+    ),
 
     React.createElement('div', { className: 'tabs' },
       React.createElement('div', { 
@@ -384,7 +419,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
       ),
       React.createElement('form', { onSubmit: handleSubmit },
         React.createElement('div', { className: 'form-group' },
-          React.createElement('label', null, 'Стадии ЭДО'),
+          React.createElement('label', null, 'Стадии ЭДО (' + stages.length + ' доступно)'),
           React.createElement('div', { className: 'stage-list' },
             stages.length > 0 ?
               stages.map(stage => 
@@ -418,7 +453,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
         ),
 
         React.createElement('div', { className: 'form-group' },
-          React.createElement('label', null, 'Бизнес-процесс'),
+          React.createElement('label', null, 'Бизнес-процесс (' + businessProcesses.length + ' доступно)'),
           React.createElement('select', { 
             value: bpId, 
             onChange: (e) => setBpId(e.target.value),
