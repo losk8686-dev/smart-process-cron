@@ -118,15 +118,14 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
       return res.json([]);
     }
     
-    // Фильтруем БП для смарт-процессов (DYNAMIC_138 или просто DYNAMIC)
-    const entityPrefix = 'DYNAMIC_' + entityTypeId;
-    const bps = result
-      .filter(bp => bp.ENTITY === entityPrefix || bp.ENTITY === 'DYNAMIC')
-      .map(bp => ({
-        id: bp.ID,
-        name: bp.NAME || 'БП #' + bp.ID,
-        description: bp.DESCRIPTION
-      }));
+    // Возвращаем все БП с указанием ENTITY для диагностики
+    const bps = result.map(bp => ({
+      id: bp.ID,
+      name: bp.NAME || 'БП #' + bp.ID,
+      description: bp.DESCRIPTION,
+      entity: bp.ENTITY,
+      moduleId: bp.MODULE_ID
+    }));
     
     res.json(bps);
   } catch (error) {
