@@ -321,6 +321,8 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
   const [selectedStages, setSelectedStages] = useState([]);
   const [runTime, setRunTime] = useState('10:00');
   const [bpId, setBpId] = useState('');
+  const [bpIdManual, setBpIdManual] = useState('');
+  const [useManualBp, setUseManualBp] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const toggleStage = (stageId) => {
@@ -342,6 +344,12 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
       return;
     }
 
+    const finalBpId = useManualBp ? bpIdManual : bpId;
+    if (!finalBpId) {
+      alert('Выберите или введите ID бизнес-процесса');
+      return;
+    }
+
     const selectedStagesNames = stages
       .filter(s => selectedStages.includes(s.id))
       .map(s => s.name);
@@ -352,8 +360,8 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
       stages: selectedStages,
       stagesNames: selectedStagesNames,
       runTime: runTime,
-      bpId: bpId,
-      bpName: businessProcesses.find(bp => bp.id === bpId)?.name || ''
+      bpId: finalBpId,
+      bpName: useManualBp ? 'БП #' + finalBpId : (businessProcesses.find(bp => bp.id === finalBpId)?.name || 'БП #' + finalBpId)
     };
 
     try {
@@ -425,19 +433,36 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
         ),
 
         React.createElement('div', { className: 'form-group' },
-          React.createElement('label', null, 'Бизнес-процесс (' + businessProcesses.length + ' доступно)'),
-          React.createElement('select', { 
-            value: bpId, 
-            onChange: (e) => setBpId(e.target.value),
-            required: true
-          },
-            React.createElement('option', { value: '' }, 
-              businessProcesses.length > 0 ? 'Выберите бизнес-процесс...' : 'Нет доступных БП'
+          React.createElement('label', null, 'Бизнес-процесс'),
+          
+          businessProcesses.length > 0 ?
+            React.createElement('select', { 
+              value: bpId, 
+              onChange: (e) => {
+                setBpId(e.target.value);
+                setUseManualBp(false);
+              },
+              style: { width: '100%', marginBottom: '10px' }
+            },
+              React.createElement('option', { value: '' }, 'Выберите бизнес-процесс...'),
+              businessProcesses.map(bp => 
+                React.createElement('option', { key: bp.id, value: bp.id }, bp.name)
+              )
+            ) :
+            React.createElement('p', { style: { color: '#999', marginBottom: '10px' } }, 
+              'Автоматически не найдены БП для ЭДО. Введите ID вручную:'
             ),
-            businessProcesses.map(bp => 
-              React.createElement('option', { key: bp.id, value: bp.id }, bp.name)
-            )
-          )
+          
+          React.createElement('input', {
+            type: 'text',
+            value: bpIdManual,
+            onChange: (e) => {
+              setBpIdManual(e.target.value);
+              setUseManualBp(true);
+            },
+            placeholder: 'ID бизнес-процесса (например: 884)',
+            style: { width: '100%' }
+          })
         ),
 
         React.createElement('button', { type: 'submit', disabled: loading },
