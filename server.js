@@ -280,6 +280,7 @@ app.post('/api/tasks', async (req, res) => {
     config.tasks.push(task);
     await saveConfig(config);
     
+    // Переинициализируем крон после создания задачи
     await initCronJobs();
     
     res.json(task);
@@ -372,6 +373,32 @@ app.get('/api/webhook', async (req, res) => {
   }
 });
 
+// Проверка статуса крона
+app.get('/api/cron-status', async (req, res) => {
+  try {
+    const config = await loadConfig();
+    const tasks = config.tasks || [];
+    
+    res.json({
+      serverTime: new Date().toISOString(),
+      timezoneOffset: new Date().getTimezoneOffset(),
+      webhookConfigured: !!process.env.BITRIX_WEBHOOK,
+      totalTasks: tasks.length,
+      activeTasks: tasks.filter(t => t.active).length,
+      cronJobsRunning: Object.keys(cronJobs).length,
+      tasks: tasks.map(t => ({
+        id: t.id,
+        name: t.smartProcessName,
+        active: t.active,
+        runTime: t.runTime,
+        lastRun: t.lastRun
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Функция запуска задачи - ИСПРАВЛЕННАЯ
 async function runTask(config, task, webhook) {
   const log = {
@@ -459,6 +486,10 @@ let cronJobs = {};
 async function initCronJobs() {
   const config = await loadConfig();
   
+  console.log('Initializing cron jobs...');
+  console.log('Total tasks:', config.tasks ? config.tasks.length : 0);
+  console.log('Active tasks:', config.tasks ? config.tasks.filter(t => t.active).length : 0);
+  
   for (const job of Object.values(cronJobs)) {
     job.stop();
   }
@@ -495,6 +526,8 @@ async function initCronJobs() {
     
     console.log('Scheduled task:', task.smartProcessName, 'user time:', task.runTime, '(UTC+7) -> server time:', hours + ':' + minutes, '(UTC)');
   }
+  
+  console.log('Cron initialization complete. Active jobs:', Object.keys(cronJobs).length);
 }
 
 // Инициализация при старте
