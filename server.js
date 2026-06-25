@@ -488,7 +488,15 @@ async function initCronJobs() {
       continue;
     }
     
-    const [hours, minutes] = task.runTime.split(':');
+    // Преобразуем время из UTC+7 (пользовательское) в UTC (серверное)
+    // Вычитаем 7 часов
+    const [userHours, userMinutes] = task.runTime.split(':');
+    let serverHours = parseInt(userHours) - 7;
+    if (serverHours < 0) {
+      serverHours += 24; // Если получилось отрицательное, добавляем 24 часа
+    }
+    const hours = serverHours.toString();
+    const minutes = userMinutes;
     const cronExpression = minutes + ' ' + hours + ' * * *';
     
     cronJobs[task.id] = cron.schedule(cronExpression, async () => {
@@ -500,7 +508,7 @@ async function initCronJobs() {
       }
     });
     
-    console.log('Scheduled task:', task.smartProcessName, 'at', task.runTime, '(server local time)');
+    console.log('Scheduled task:', task.smartProcessName, 'user time:', task.runTime, '(UTC+7) -> server time:', hours + ':' + minutes, '(UTC)');
   }
 }
 

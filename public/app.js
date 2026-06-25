@@ -516,7 +516,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
             required: true
           }),
           React.createElement('small', { style: { color: '#5f6368', display: 'block', marginTop: '5px' } }, 
-            'Часовой пояс: ' + SERVER_TIMEZONE
+            'Ваше время (UTC+7). Будет автоматически преобразовано к серверному времени'
           )
         ),
 
