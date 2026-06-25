@@ -362,6 +362,28 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+// Сохранение вебхука на сервере
+app.post('/api/webhook', async (req, res) => {
+  try {
+    const config = await loadConfig();
+    config.webhook = req.body.webhook || null;
+    await saveConfig(config);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Получение вебхука с сервера
+app.get('/api/webhook', async (req, res) => {
+  try {
+    const config = await loadConfig();
+    res.json({ webhook: config.webhook || null });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Функция запуска задачи - ИСПРАВЛЕННАЯ
 async function runTask(config, task, webhook) {
   const log = {

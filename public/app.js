@@ -41,6 +41,30 @@ function App() {
     };
   };
 
+  // Загружаем вебхук с сервера при старте
+  useEffect(() => {
+    const loadWebhookFromServer = async () => {
+      try {
+        const res = await fetch('/api/webhook');
+        const data = await res.json();
+        if (data.webhook) {
+          setWebhook(data.webhook);
+          localStorage.setItem('b24_webhook', data.webhook);
+        }
+      } catch (err) {
+        console.log('No webhook on server');
+      }
+    };
+    
+    // Сначала проверяем localStorage, потом сервер
+    const savedWebhook = localStorage.getItem('b24_webhook');
+    if (savedWebhook) {
+      setWebhook(savedWebhook);
+    } else {
+      loadWebhookFromServer();
+    }
+  }, []);
+
   useEffect(() => {
     if (webhook) {
       loadData();
@@ -118,6 +142,17 @@ function App() {
     const normalizedUrl = url.endsWith('/') ? url : url + '/';
     setWebhook(normalizedUrl);
     localStorage.setItem('b24_webhook', normalizedUrl);
+    
+    // Сохраняем на сервере
+    try {
+      await fetch('/api/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook: normalizedUrl })
+      });
+    } catch (err) {
+      console.error('Error saving webhook to server:', err);
+    }
     
     setStatus({ type: 'success', message: 'Подключение установлено!' });
     loadData();
