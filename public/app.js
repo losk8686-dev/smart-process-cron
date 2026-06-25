@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
 
   useEffect(() => {
     if (webhook) {
@@ -23,35 +24,60 @@ function App() {
 
   const loadData = async () => {
     setLoading(true);
+    setDebugInfo('Начинаем загрузку данных...');
     try {
-      await fetch('/api/webhook', {
+      // Сохраняем вебхук
+      setDebugInfo('Сохраняем вебхук...');
+      const webhookRes = await fetch('/api/webhook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webhook })
       });
+      setDebugInfo('Вебхук сохранен, статус: ' + webhookRes.status);
 
-      const [tasksRes, logsRes, stagesRes, bpRes] = await Promise.all([
+      // Загружаем задачи и логи
+      setDebugInfo('Загружаем задачи и логи...');
+      const [tasksRes, logsRes] = await Promise.all([
         fetch('/api/tasks'),
-        fetch('/api/logs'),
-        fetch('/api/stages/' + EDO_ENTITY_TYPE_ID),
-        fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID)
+        fetch('/api/logs')
       ]);
 
       const tasksData = await tasksRes.json();
       const logsData = await logsRes.json();
-      const stagesData = await stagesRes.json();
-      const bpData = await bpRes.json();
 
-      if (tasksData.error) throw new Error(tasksData.error);
-      if (logsData.error) throw new Error(logsData.error);
-
+      setDebugInfo('Задачи загружены: ' + JSON.stringify(tasksData).substring(0, 100));
       setTasks(tasksData);
       setLogs(logsData);
+
+      // Загружаем стадии
+      setDebugInfo('Загружаем стадии для ЭДО (ID: ' + EDO_ENTITY_TYPE_ID + ')...');
+      const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID);
+      const stagesData = await stagesRes.json();
+      setDebugInfo('Стадии получены: ' + JSON.stringify(stagesData).substring(0, 200));
+      
+      if (stagesData.error) {
+        setDebugInfo('Ошибка стадий: ' + stagesData.error);
+        throw new Error(stagesData.error);
+      }
       setStages(stagesData);
+
+      // Загружаем бизнес-процессы
+      setDebugInfo('Загружаем бизнес-процессы...');
+      const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID);
+      const bpData = await bpRes.json();
+      setDebugInfo('БП получены: ' + JSON.stringify(bpData).substring(0, 200));
+      
+      if (bpData.error) {
+        setDebugInfo('Ошибка БП: ' + bpData.error);
+        throw new Error(bpData.error);
+      }
       setBusinessProcesses(bpData);
+
+      setDebugInfo('Все данные загружены успешно!');
     } catch (err) {
       console.error('Error loading data:', err);
       setStatus({ type: 'error', message: 'Ошибка загрузки: ' + err.message });
+      setDebugInfo('Ошибка: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -162,15 +188,7 @@ function App() {
           ),
           React.createElement('button', { type: 'submit' }, 'Сохранить и подключиться')
         ),
-        status.message && React.createElement('div', { className: 'status ' + status.type }, status.message),
-        React.createElement('div', { style: { marginTop: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '4px' } },
-          React.createElement('strong', null, 'Как получить вебхук:'),
-          React.createElement('ol', { style: { marginTop: '10px', paddingLeft: '20px' } },
-            React.createElement('li', null, 'Перейдите в Битрикс24 → Разработчикам → Другое → Входящий вебхук'),
-            React.createElement('li', null, 'Создайте новый вебхук с правами: CRM, Бизнес-процессы'),
-            React.createElement('li', null, 'Скопируйте URL и вставьте его выше')
-          )
-        )
+        status.message && React.createElement('div', { className: 'status ' + status.type }, status.message)
       )
     );
   }
@@ -182,6 +200,10 @@ function App() {
     ),
 
     status.message && React.createElement('div', { className: 'status ' + status.type, style: { marginBottom: '20px' } }, status.message),
+    
+    debugInfo && React.createElement('div', { style: { padding: '10px', background: '#f0f0f0', marginBottom: '10px', fontSize: '12px', fontFamily: 'monospace' } }, 
+      React.createElement('strong', null, 'Debug: '), debugInfo
+    ),
 
     React.createElement('div', { className: 'tabs' },
       React.createElement('div', { 
@@ -393,7 +415,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
                   stage.name
                 )
               ) :
-              React.createElement('p', { style: { color: '#999' } }, 'Загрузка стадий...')
+              React.createElement('p', { style: { color: '#999' } }, 'Нет доступных стадий. Проверьте вебхук.')
           )
         ),
 
@@ -414,7 +436,9 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
             onChange: (e) => setBpId(e.target.value),
             required: true
           },
-            React.createElement('option', { value: '' }, 'Выберите бизнес-процесс...'),
+            React.createElement('option', { value: '' }, 
+              businessProcesses.length > 0 ? 'Выберите бизнес-процесс...' : 'Нет доступных БП'
+            ),
             businessProcesses.map(bp => 
               React.createElement('option', { key: bp.id, value: bp.id }, bp.name)
             )
