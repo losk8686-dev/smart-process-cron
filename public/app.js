@@ -4,21 +4,11 @@ const { useState, useEffect } = React;
 const EDO_ENTITY_TYPE_ID = '138';
 const EDO_NAME = 'ЭДО';
 
-// Функция для маскирования вебхука
+// Функция для маскирования вебхука - скрываем токен после /rest/1/
 function maskWebhook(url) {
   if (!url) return '';
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    // Маскируем токен в пути
-    if (pathParts.length > 2) {
-      pathParts[pathParts.length - 1] = '****';
-      urlObj.pathname = pathParts.join('/');
-    }
-    return urlObj.toString();
-  } catch {
-    return url.substring(0, 20) + '****';
-  }
+  // Заменяем токен после /rest/1/ на ****
+  return url.replace(/(\/rest\/\d+\/)[^\/]+/, '$1****');
 }
 
 function App() {
