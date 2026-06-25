@@ -276,6 +276,7 @@ app.post('/api/tasks', async (req, res) => {
       lastRun: null,
       active: true
     };
+    };
     
     config.tasks = config.tasks || [];
     config.tasks.push(task);
@@ -378,7 +379,9 @@ app.post('/api/webhook', async (req, res) => {
 app.get('/api/webhook', async (req, res) => {
   try {
     const config = await loadConfig();
-    res.json({ webhook: config.webhook || null });
+    // Используем сохранённый вебхук или переменную окружения
+    const webhook = config.webhook || process.env.BITRIX_WEBHOOK || null;
+    res.json({ webhook: webhook });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -479,7 +482,7 @@ async function initCronJobs() {
   for (const task of config.tasks || []) {
     if (!task.active || !task.runTime) continue;
     
-    const webhook = task.webhook || process.env.BITRIX_WEBHOOK;
+    const webhook = task.webhook || process.env.BITRIX_WEBHOOK || config.webhook;
     if (!webhook) {
       console.log('No webhook for task:', task.smartProcessName, '- skipping');
       continue;
@@ -497,12 +500,18 @@ async function initCronJobs() {
       }
     });
     
-    console.log('Scheduled task:', task.smartProcessName, 'at', task.runTime);
+    console.log('Scheduled task:', task.smartProcessName, 'at', task.runTime, '(server local time)');
   }
 }
 
 // Инициализация при старте
-(async () => { await initCronJobs(); })();
+(async () => {
+  console.log('Server starting...');
+  console.log('Current time:', new Date().toISOString());
+  console.log('Timezone offset:', new Date().getTimezoneOffset(), 'minutes');
+  console.log('BITRIX_WEBHOOK env:', process.env.BITRIX_WEBHOOK ? 'Set' : 'Not set');
+  await initCronJobs();
+})();
 
 // Static SPA
 app.use(express.static(join(__dirname, 'public')));
