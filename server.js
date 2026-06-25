@@ -100,15 +100,13 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
   }
 });
 
-// Получение бизнес-процессов для ЭДО
+// Получение бизнес-процессов - возвращаем все для выбора
 app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   try {
     const webhook = getWebhookFromHeaders(req);
     if (!webhook) {
       return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
     }
-    
-    const { entityTypeId } = req.params;
     
     const result = await callBitrixApi(webhook, 'bizproc.workflow.template.list', {
       select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY']
@@ -118,13 +116,12 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
       return res.json([]);
     }
     
-    // Возвращаем все БП с указанием ENTITY для диагностики
+    // Возвращаем все БП с пометкой ENTITY
     const bps = result.map(bp => ({
       id: bp.ID,
-      name: bp.NAME || 'БП #' + bp.ID,
+      name: (bp.NAME || 'БП #' + bp.ID) + ' [' + bp.ENTITY + ']',
       description: bp.DESCRIPTION,
-      entity: bp.ENTITY,
-      moduleId: bp.MODULE_ID
+      entity: bp.ENTITY
     }));
     
     res.json(bps);
