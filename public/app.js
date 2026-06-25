@@ -24,19 +24,17 @@ function App() {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Сохраняем вебхук
       await fetch('/api/webhook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webhook })
       });
 
-      // Загружаем задачи, логи, стадии и БП параллельно
       const [tasksRes, logsRes, stagesRes, bpRes] = await Promise.all([
         fetch('/api/tasks'),
         fetch('/api/logs'),
-        fetch(`/api/stages/${EDO_ENTITY_TYPE_ID}`),
-        fetch(`/api/business-processes/${EDO_ENTITY_TYPE_ID}`)
+        fetch('/api/stages/' + EDO_ENTITY_TYPE_ID),
+        fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID)
       ]);
 
       const tasksData = await tasksRes.json();
@@ -90,7 +88,7 @@ function App() {
     
     setLoading(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}/run`, { method: 'POST' });
+      const res = await fetch('/api/tasks/' + taskId + '/run', { method: 'POST' });
       const data = await res.json();
       
       if (data.status === 'error') {
@@ -98,7 +96,7 @@ function App() {
       } else {
         setStatus({ 
           type: 'success', 
-          message: `Запущено: ${data.result?.started || 0}, Ошибок: ${data.result?.errors || 0}` 
+          message: 'Запущено: ' + (data.result?.started || 0) + ', Ошибок: ' + (data.result?.errors || 0)
         });
       }
       
@@ -112,7 +110,7 @@ function App() {
 
   const toggleTask = async (task) => {
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch('/api/tasks/' + task.id, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !task.active })
@@ -121,7 +119,7 @@ function App() {
       if (res.ok) {
         setStatus({ 
           type: 'success', 
-          message: `Задача ${task.active ? 'остановлена' : 'активирована'}` 
+          message: 'Задача ' + (task.active ? 'остановлена' : 'активирована')
         });
         loadData();
       }
@@ -134,7 +132,7 @@ function App() {
     if (!confirm('Удалить задачу?')) return;
     
     try {
-      await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+      await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
       setStatus({ type: 'success', message: 'Задача удалена' });
       loadData();
     } catch (err) {
@@ -143,217 +141,171 @@ function App() {
   };
 
   if (!webhook) {
-    return (
-      <div className="container">
-        <div className="header">
-          <h1>Smart Process Cron - ЭДО</h1>
-          <p>Автоматический запуск бизнес-процессов для ЭДО</p>
-        </div>
-        <div className="card">
-          <h2>Настройка подключения</h2>
-          <p>Для работы приложения необходимо указать входящий вебхук Битрикс24.</p>
-          <form onSubmit={saveWebhook}>
-            <div className="form-group">
-              <label>Входящий вебхук URL</label>
-              <input
-                type="text"
-                value={webhook}
-                onChange={(e) => setWebhook(e.target.value)}
-                placeholder="https://your-portal.bitrix24.ru/rest/1/..."
-                required
-              />
-            </div>
-            <button type="submit">Сохранить и подключиться</button>
-          </form>
-          {status.message && <div className={`status ${status.type}`}>{status.message}</div>}
-          <div style={{marginTop: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '4px'}}>
-            <strong>Как получить вебхук:</strong>
-            <ol style={{marginTop: '10px', paddingLeft: '20px'}}>
-              <li>Перейдите в Битрикс24 → Разработчикам → Другое → Входящий вебхук</li>
-              <li>Создайте новый вебхук с правами: CRM, Бизнес-процессы</li>
-              <li>Скопируйте URL и вставьте его выше</li>
-            </ol>
-          </div>
-        </div>
-      </div>
+    return React.createElement('div', { className: 'container' },
+      React.createElement('div', { className: 'header' },
+        React.createElement('h1', null, 'Smart Process Cron - ЭДО'),
+        React.createElement('p', null, 'Автоматический запуск бизнес-процессов для ЭДО')
+      ),
+      React.createElement('div', { className: 'card' },
+        React.createElement('h2', null, 'Настройка подключения'),
+        React.createElement('p', null, 'Для работы приложения необходимо указать входящий вебхук Битрикс24.'),
+        React.createElement('form', { onSubmit: saveWebhook },
+          React.createElement('div', { className: 'form-group' },
+            React.createElement('label', null, 'Входящий вебхук URL'),
+            React.createElement('input', {
+              type: 'text',
+              value: webhook,
+              onChange: (e) => setWebhook(e.target.value),
+              placeholder: 'https://your-portal.bitrix24.ru/rest/1/...',
+              required: true
+            })
+          ),
+          React.createElement('button', { type: 'submit' }, 'Сохранить и подключиться')
+        ),
+        status.message && React.createElement('div', { className: 'status ' + status.type }, status.message),
+        React.createElement('div', { style: { marginTop: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '4px' } },
+          React.createElement('strong', null, 'Как получить вебхук:'),
+          React.createElement('ol', { style: { marginTop: '10px', paddingLeft: '20px' } },
+            React.createElement('li', null, 'Перейдите в Битрикс24 → Разработчикам → Другое → Входящий вебхук'),
+            React.createElement('li', null, 'Создайте новый вебхук с правами: CRM, Бизнес-процессы'),
+            React.createElement('li', null, 'Скопируйте URL и вставьте его выше')
+          )
+        )
+      )
     );
   }
 
-  return (
-    <div className="container">
-      <div className="header">
-        <h1>Smart Process Cron - ЭДО</h1>
-        <p>Автоматический запуск бизнес-процессов для цифрового рабочего места ЭДО</p>
-      </div>
+  return React.createElement('div', { className: 'container' },
+    React.createElement('div', { className: 'header' },
+      React.createElement('h1', null, 'Smart Process Cron - ЭДО'),
+      React.createElement('p', null, 'Автоматический запуск бизнес-процессов для цифрового рабочего места ЭДО')
+    ),
 
-      {status.message && (
-        <div className={`status ${status.type}`} style={{marginBottom: '20px'}}>
-          {status.message}
-        </div>
-      )}
+    status.message && React.createElement('div', { className: 'status ' + status.type, style: { marginBottom: '20px' } }, status.message),
 
-      <div className="tabs">
-        <div 
-          className={`tab ${currentTab === 'tasks' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('tasks')}
-        >
-          Задачи ({tasks.length})
-        </div>
-        <div 
-          className={`tab ${currentTab === 'logs' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('logs')}
-        >
-          Логи ({logs.length})
-        </div>
-        <div 
-          className={`tab ${currentTab === 'settings' ? 'active' : ''}`}
-          onClick={() => setCurrentTab('settings')}
-        >
-          Настройки
-        </div>
-      </div>
+    React.createElement('div', { className: 'tabs' },
+      React.createElement('div', { 
+        className: 'tab ' + (currentTab === 'tasks' ? 'active' : ''),
+        onClick: () => setCurrentTab('tasks')
+      }, 'Задачи (' + tasks.length + ')'),
+      React.createElement('div', { 
+        className: 'tab ' + (currentTab === 'logs' ? 'active' : ''),
+        onClick: () => setCurrentTab('logs')
+      }, 'Логи (' + logs.length + ')'),
+      React.createElement('div', { 
+        className: 'tab ' + (currentTab === 'settings' ? 'active' : ''),
+        onClick: () => setCurrentTab('settings')
+      }, 'Настройки')
+    ),
 
-      {currentTab === 'tasks' && (
-        <div className="card">
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-            <h2>Задачи ЭДО</h2>
-            <button onClick={() => setShowModal(true)}>
-              + Новая задача
-            </button>
-          </div>
+    currentTab === 'tasks' && React.createElement('div', { className: 'card' },
+      React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' } },
+        React.createElement('h2', null, 'Задачи ЭДО'),
+        React.createElement('button', { onClick: () => setShowModal(true) }, '+ Новая задача')
+      ),
 
-          {tasks.length === 0 ? (
-            <div className="empty-state">
-              <h3>Нет задач</h3>
-              <p>Создайте задачу для автоматического запуска бизнес-процессов ЭДО</p>
-              <button onClick={() => setShowModal(true)}>
-                Создать задачу
-              </button>
-            </div>
-          ) : (
-            <div className="task-list">
-              {tasks.map(task => (
-                <div key={task.id} className="task-item">
-                  <h3>ЭДО</h3>
-                  <div className="task-details">
-                    <div>
-                      <strong>Стадии:</strong>
-                      <div className="stage-list">
-                        {(task.stagesNames || task.stages || []).map((stage, idx) => (
-                          <span key={idx} className="stage-item selected">{stage}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <strong>Время запуска:</strong> {task.runTime}<br/>
-                      <strong>Последний запуск:</strong> {task.lastRun 
-                        ? new Date(task.lastRun).toLocaleString('ru-RU') 
-                        : 'Не запускалась'}<br/>
-                      <strong>Статус:</strong>{' '}
-                      <span className={`badge ${task.active ? 'badge-success' : 'badge-warning'}`}>
-                        {task.active ? 'Активна' : 'Остановлена'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {task.lastResult && (
-                    <div style={{marginTop: '10px', padding: '10px', background: '#f0f0f0', borderRadius: '4px'}}>
-                      <strong>Последний результат:</strong>{' '}
-                      Запущено: {task.lastResult.started}, 
-                      Ошибок: {task.lastResult.errors}, 
-                      Всего: {task.lastResult.total}
-                    </div>
-                  )}
+      tasks.length === 0 ? 
+        React.createElement('div', { className: 'empty-state' },
+          React.createElement('h3', null, 'Нет задач'),
+          React.createElement('p', null, 'Создайте задачу для автоматического запуска бизнес-процессов ЭДО'),
+          React.createElement('button', { onClick: () => setShowModal(true) }, 'Создать задачу')
+        ) :
+        React.createElement('div', { className: 'task-list' },
+          tasks.map(task => 
+            React.createElement('div', { key: task.id, className: 'task-item' },
+              React.createElement('h3', null, 'ЭДО'),
+              React.createElement('div', { className: 'task-details' },
+                React.createElement('div', null,
+                  React.createElement('strong', null, 'Стадии:'),
+                  React.createElement('div', { className: 'stage-list' },
+                    (task.stagesNames || task.stages || []).map((stage, idx) => 
+                      React.createElement('span', { key: idx, className: 'stage-item selected' }, stage)
+                    )
+                  )
+                ),
+                React.createElement('div', null,
+                  React.createElement('strong', null, 'Время запуска:'), ' ' + task.runTime,
+                  React.createElement('br', null),
+                  React.createElement('strong', null, 'Последний запуск:'), ' ' + (task.lastRun ? new Date(task.lastRun).toLocaleString('ru-RU') : 'Не запускалась'),
+                  React.createElement('br', null),
+                  React.createElement('strong', null, 'Статус:'), ' ',
+                  React.createElement('span', { className: 'badge ' + (task.active ? 'badge-success' : 'badge-warning') },
+                    task.active ? 'Активна' : 'Остановлена'
+                  )
+                )
+              ),
+              
+              task.lastResult && React.createElement('div', { style: { marginTop: '10px', padding: '10px', background: '#f0f0f0', borderRadius: '4px' } },
+                React.createElement('strong', null, 'Последний результат:'), ' ',
+                'Запущено: ' + task.lastResult.started + ', Ошибок: ' + task.lastResult.errors + ', Всего: ' + task.lastResult.total
+              ),
 
-                  <div className="task-actions">
-                    <button 
-                      onClick={() => runTask(task.id)}
-                      disabled={!task.active || loading}
-                    >
-                      {loading ? 'Запуск...' : 'Запустить сейчас'}
-                    </button>
-                    <button 
-                      className="secondary"
-                      onClick={() => toggleTask(task)}
-                    >
-                      {task.active ? 'Остановить' : 'Запустить'}
-                    </button>
-                    <button 
-                      className="secondary danger"
-                      onClick={() => deleteTask(task.id)}
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              React.createElement('div', { className: 'task-actions' },
+                React.createElement('button', { 
+                  onClick: () => runTask(task.id),
+                  disabled: !task.active || loading
+                }, loading ? 'Запуск...' : 'Запустить сейчас'),
+                React.createElement('button', { 
+                  className: 'secondary',
+                  onClick: () => toggleTask(task)
+                }, task.active ? 'Остановить' : 'Запустить'),
+                React.createElement('button', { 
+                  className: 'secondary danger',
+                  onClick: () => deleteTask(task.id)
+                }, 'Удалить')
+              )
+            )
+          )
+        )
+    ),
 
-      {currentTab === 'logs' && (
-        <div className="card">
-          <h2>История запусков</h2>
-          {logs.length === 0 ? (
-            <div className="empty-state">
-              <p>История запусков пуста</p>
-            </div>
-          ) : (
-            <div className="logs">
-              {logs.map(log => (
-                <div key={log.id} className={`log-entry ${log.status}`}>
-                  <span className="timestamp">
-                    {new Date(log.timestamp).toLocaleString('ru-RU')}
-                  </span>
-                  <div>
-                    <strong>{log.taskName}</strong>
-                    <div>{(log.details || []).join(', ')}</div>
-                    {log.result && (
-                      <div style={{marginTop: '5px'}}>
-                        Результат: Запущено {log.result.started}, Ошибок {log.result.errors}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+    currentTab === 'logs' && React.createElement('div', { className: 'card' },
+      React.createElement('h2', null, 'История запусков'),
+      logs.length === 0 ? 
+        React.createElement('div', { className: 'empty-state' },
+          React.createElement('p', null, 'История запусков пуста')
+        ) :
+        React.createElement('div', { className: 'logs' },
+          logs.map(log => 
+            React.createElement('div', { key: log.id, className: 'log-entry ' + log.status },
+              React.createElement('span', { className: 'timestamp' }, new Date(log.timestamp).toLocaleString('ru-RU')),
+              React.createElement('div', null,
+                React.createElement('strong', null, log.taskName),
+                React.createElement('div', null, (log.details || []).join(', ')),
+                log.result && React.createElement('div', { style: { marginTop: '5px' } },
+                  'Результат: Запущено ' + log.result.started + ', Ошибок ' + log.result.errors
+                )
+              )
+            )
+          )
+        )
+    ),
 
-      {currentTab === 'settings' && (
-        <div className="card">
-          <h2>Настройки</h2>
-          <div className="form-group">
-            <label>Текущий вебхук</label>
-            <input 
-              type="text" 
-              value={webhook} 
-              readOnly 
-              style={{width: '100%', padding: '10px', background: '#f5f5f5'}}
-            />
-          </div>
-          <button onClick={() => {
-            localStorage.removeItem('b24_webhook');
-            setWebhook('');
-            setTasks([]);
-            setLogs([]);
-          }}>
-            Изменить вебхук
-          </button>
-        </div>
-      )}
+    currentTab === 'settings' && React.createElement('div', { className: 'card' },
+      React.createElement('h2', null, 'Настройки'),
+      React.createElement('div', { className: 'form-group' },
+        React.createElement('label', null, 'Текущий вебхук'),
+        React.createElement('input', { 
+          type: 'text', 
+          value: webhook, 
+          readOnly: true,
+          style: { width: '100%', padding: '10px', background: '#f5f5f5' }
+        })
+      ),
+      React.createElement('button', { onClick: () => {
+        localStorage.removeItem('b24_webhook');
+        setWebhook('');
+        setTasks([]);
+        setLogs([]);
+      }}, 'Изменить вебхук')
+    ),
 
-      {showModal && (
-        <TaskModal
-          stages={stages}
-          businessProcesses={businessProcesses}
-          onClose={() => setShowModal(false)}
-          onSave={() => { setShowModal(false); loadData(); }}
-        />
-      )}
-    </div>
+    showModal && React.createElement(TaskModal, {
+      stages: stages,
+      businessProcesses: businessProcesses,
+      onClose: () => setShowModal(false),
+      onSave: () => { setShowModal(false); loadData(); }
+    })
   );
 }
 
@@ -388,8 +340,8 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
       smartProcessName: EDO_NAME,
       stages: selectedStages,
       stagesNames: selectedStagesNames,
-      runTime,
-      bpId,
+      runTime: runTime,
+      bpId: bpId,
       bpName: businessProcesses.find(bp => bp.id === bpId)?.name || ''
     };
 
@@ -414,72 +366,68 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
     }
   };
 
-  return (
-    <div className="modal active">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h2>Новая задача ЭДО</h2>
-          <button className="close-btn" onClick={onClose}>&times;</button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Стадии ЭДО</label>
-            <div className="stage-list">
-              {stages.length > 0 ? (
-                stages.map(stage => (
-                  <label 
-                    key={stage.id} 
-                    className={`stage-item ${selectedStages.includes(stage.id) ? 'selected' : ''}`}
-                    style={{cursor: 'pointer'}}
-                    onClick={() => toggleStage(stage.id)}
-                  >
-                    <input 
-                      type="checkbox" 
-                      checked={selectedStages.includes(stage.id)}
-                      onChange={() => {}}
-                      style={{display: 'none'}}
-                    />
-                    {stage.name}
-                  </label>
-                ))
-              ) : (
-                <p style={{color: '#999'}}>Загрузка стадий...</p>
-              )}
-            </div>
-          </div>
+  return React.createElement('div', { className: 'modal active' },
+    React.createElement('div', { className: 'modal-content' },
+      React.createElement('div', { className: 'modal-header' },
+        React.createElement('h2', null, 'Новая задача ЭДО'),
+        React.createElement('button', { className: 'close-btn', onClick: onClose }, '×')
+      ),
+      React.createElement('form', { onSubmit: handleSubmit },
+        React.createElement('div', { className: 'form-group' },
+          React.createElement('label', null, 'Стадии ЭДО'),
+          React.createElement('div', { className: 'stage-list' },
+            stages.length > 0 ?
+              stages.map(stage => 
+                React.createElement('label', { 
+                  key: stage.id, 
+                  className: 'stage-item ' + (selectedStages.includes(stage.id) ? 'selected' : ''),
+                  style: { cursor: 'pointer' },
+                  onClick: () => toggleStage(stage.id)
+                },
+                  React.createElement('input', { 
+                    type: 'checkbox', 
+                    checked: selectedStages.includes(stage.id),
+                    onChange: () => {},
+                    style: { display: 'none' }
+                  }),
+                  stage.name
+                )
+              ) :
+              React.createElement('p', { style: { color: '#999' } }, 'Загрузка стадий...')
+          )
+        ),
 
-          <div className="form-group">
-            <label>Время запуска (каждый день)</label>
-            <input 
-              type="time" 
-              value={runTime}
-              onChange={(e) => setRunTime(e.target.value)}
-              required
-            />
-          </div>
+        React.createElement('div', { className: 'form-group' },
+          React.createElement('label', null, 'Время запуска (каждый день)'),
+          React.createElement('input', { 
+            type: 'time', 
+            value: runTime,
+            onChange: (e) => setRunTime(e.target.value),
+            required: true
+          })
+        ),
 
-          <div className="form-group">
-            <label>Бизнес-процесс</label>
-            <select 
-              value={bpId} 
-              onChange={(e) => setBpId(e.target.value)}
-              required
-            >
-              <option value="">Выберите бизнес-процесс...</option>
-              {businessProcesses.map(bp => (
-                <option key={bp.id} value={bp.id}>{bp.name}</option>
-              ))}
-            </select>
-          </div>
+        React.createElement('div', { className: 'form-group' },
+          React.createElement('label', null, 'Бизнес-процесс'),
+          React.createElement('select', { 
+            value: bpId, 
+            onChange: (e) => setBpId(e.target.value),
+            required: true
+          },
+            React.createElement('option', { value: '' }, 'Выберите бизнес-процесс...'),
+            businessProcesses.map(bp => 
+              React.createElement('option', { key: bp.id, value: bp.id }, bp.name)
+            )
+          )
+        ),
 
-          <button type="submit" disabled={loading}>
-            {loading ? 'Сохранение...' : 'Сохранить задачу'}
-          </button>
-        </form>
-      </div>
-    </div>
+        React.createElement('button', { type: 'submit', disabled: loading },
+          loading ? 'Сохранение...' : 'Сохранить задачу'
+        )
+      )
+    )
   );
 }
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
+// Используем старый ReactDOM.render для совместимости с UMD
+ReactDOM.render(React.createElement(App), document.getElementById('root'));
