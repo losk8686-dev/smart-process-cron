@@ -4,6 +4,23 @@ const { useState, useEffect } = React;
 const EDO_ENTITY_TYPE_ID = '138';
 const EDO_NAME = 'ЭДО';
 
+// Функция для маскирования вебхука
+function maskWebhook(url) {
+  if (!url) return '';
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/');
+    // Маскируем токен в пути
+    if (pathParts.length > 2) {
+      pathParts[pathParts.length - 1] = '****';
+      urlObj.pathname = pathParts.join('/');
+    }
+    return urlObj.toString();
+  } catch {
+    return url.substring(0, 20) + '****';
+  }
+}
+
 function App() {
   const [webhook, setWebhook] = useState(localStorage.getItem('b24_webhook') || '');
   const [currentTab, setCurrentTab] = useState('tasks');
@@ -14,7 +31,12 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
+
+  // Функция для создания заголовков с вебхуком
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'X-Webhook-URL': webhook
+  });
 
   useEffect(() => {
     if (webhook) {
@@ -24,19 +46,8 @@ function App() {
 
   const loadData = async () => {
     setLoading(true);
-    setDebugInfo('Начинаем загрузку данных...');
     try {
-      // Сохраняем вебхук
-      setDebugInfo('Сохраняем вебхук...');
-      const webhookRes = await fetch('/api/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhook })
-      });
-      setDebugInfo('Вебхук сохранен, статус: ' + webhookRes.status);
-
-      // Загружаем задачи и логи
-      setDebugInfo('Загружаем задачи и логи...');
+      // Загружаем задачи и логи (не требуют вебхук)
       const [tasksRes, logsRes] = await Promise.all([
         fetch('/api/tasks'),
         fetch('/api/logs')
@@ -45,39 +56,33 @@ function App() {
       const tasksData = await tasksRes.json();
       const logsData = await logsRes.json();
 
-      setDebugInfo('Задачи загружены: ' + JSON.stringify(tasksData).substring(0, 100));
       setTasks(tasksData);
       setLogs(logsData);
 
-      // Загружаем стадии
-      setDebugInfo('Загружаем стадии для ЭДО (ID: ' + EDO_ENTITY_TYPE_ID + ')...');
-      const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID);
+      // Загружаем стадии с вебхуком в заголовке
+      const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID, {
+        headers: getHeaders()
+      });
       const stagesData = await stagesRes.json();
-      setDebugInfo('Стадии получены: ' + JSON.stringify(stagesData).substring(0, 200));
       
       if (stagesData.error) {
-        setDebugInfo('Ошибка стадий: ' + stagesData.error);
         throw new Error(stagesData.error);
       }
       setStages(stagesData);
 
-      // Загружаем бизнес-процессы
-      setDebugInfo('Загружаем бизнес-процессы...');
-      const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID);
+      // Загружаем бизнес-процессы с вебхуком в заголовке
+      const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID, {
+        headers: getHeaders()
+      });
       const bpData = await bpRes.json();
-      setDebugInfo('БП получены: ' + JSON.stringify(bpData).substring(0, 200));
       
       if (bpData.error) {
-        setDebugInfo('Ошибка БП: ' + bpData.error);
         throw new Error(bpData.error);
       }
       setBusinessProcesses(bpData);
-
-      setDebugInfo('Все данные загружены успешно!');
     } catch (err) {
       console.error('Error loading data:', err);
       setStatus({ type: 'error', message: 'Ошибка загрузки: ' + err.message });
-      setDebugInfo('Ошибка: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -95,18 +100,8 @@ function App() {
     setWebhook(normalizedUrl);
     localStorage.setItem('b24_webhook', normalizedUrl);
     
-    try {
-      await fetch('/api/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhook: normalizedUrl })
-      });
-      
-      setStatus({ type: 'success', message: 'Подключение установлено!' });
-      loadData();
-    } catch (err) {
-      setStatus({ type: 'error', message: 'Ошибка: ' + err.message });
-    }
+    setStatus({ type: 'success', message: 'Подключение установлено!' });
+    loadData();
   };
 
   const runTask = async (taskId) => {
@@ -114,7 +109,10 @@ function App() {
     
     setLoading(true);
     try {
-      const res = await fetch('/api/tasks/' + taskId + '/run', { method: 'POST' });
+      const res = await fetch('/api/tasks/' + taskId + '/run', { 
+        method: 'POST',
+        headers: getHeaders()
+      });
       const data = await res.json();
       
       if (data.status === 'error') {
@@ -200,10 +198,6 @@ function App() {
     ),
 
     status.message && React.createElement('div', { className: 'status ' + status.type, style: { marginBottom: '20px' } }, status.message),
-    
-    debugInfo && React.createElement('div', { style: { padding: '10px', background: '#f0f0f0', marginBottom: '10px', fontSize: '12px', fontFamily: 'monospace' } }, 
-      React.createElement('strong', null, 'Debug: '), debugInfo
-    ),
 
     React.createElement('div', { className: 'tabs' },
       React.createElement('div', { 
@@ -309,7 +303,7 @@ function App() {
         React.createElement('label', null, 'Текущий вебхук'),
         React.createElement('input', { 
           type: 'text', 
-          value: webhook, 
+          value: maskWebhook(webhook), 
           readOnly: true,
           style: { width: '100%', padding: '10px', background: '#f5f5f5' }
         })

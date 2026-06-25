@@ -23,7 +23,7 @@
     },
     "openwork-ui": {
       "type": "remote",
-      "url": "http://127.0.0.1:49777/mcp"
+      "url": "http://127.0.0.1:60913/mcp"
     }
   },
   "default_agent": "b24cowork"

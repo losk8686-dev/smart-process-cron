@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-// Хранилище конфигурации
+// Хранилище конфигурации (только задачи и логи, без вебхука)
 const CONFIG_FILE = join(__dirname, 'data', 'config.json');
 
 async function loadConfig() {
@@ -18,7 +18,7 @@ async function loadConfig() {
     const data = await fs.readFile(CONFIG_FILE, 'utf8');
     return JSON.parse(data);
   } catch {
-    return { tasks: [], logs: [], webhook: null };
+    return { tasks: [], logs: [] };
   }
 }
 
@@ -29,6 +29,10 @@ async function saveConfig(config) {
 
 // API для работы с Битрикс24 через вебхук
 async function callBitrixApi(webhook, method, params = {}) {
+  if (!webhook) {
+    throw new Error('Webhook not provided');
+  }
+  
   const url = webhook.endsWith('/') ? webhook : webhook + '/';
   const response = await fetch(url + method, {
     method: 'POST',
@@ -47,14 +51,14 @@ async function callBitrixApi(webhook, method, params = {}) {
 // Получение стадий для ЭДО (entityTypeId: 138)
 app.get('/api/stages/:entityTypeId', async (req, res) => {
   try {
-    const config = await loadConfig();
-    if (!config.webhook) {
-      return res.status(400).json({ error: 'Webhook not configured' });
+    const webhook = req.headers['x-webhook-url'];
+    if (!webhook) {
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-URL header' });
     }
     
     const { entityTypeId } = req.params;
     
-    const result = await callBitrixApi(config.webhook, 'crm.status.list', {
+    const result = await callBitrixApi(webhook, 'crm.status.list', {
       order: { SORT: 'ASC' }
     });
     
@@ -82,14 +86,14 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
 // Получение бизнес-процессов
 app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   try {
-    const config = await loadConfig();
-    if (!config.webhook) {
-      return res.status(400).json({ error: 'Webhook not configured' });
+    const webhook = req.headers['x-webhook-url'];
+    if (!webhook) {
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-URL header' });
     }
     
     const { entityTypeId } = req.params;
     
-    const result = await callBitrixApi(config.webhook, 'bizproc.workflow.template.list', {
+    const result = await callBitrixApi(webhook, 'bizproc.workflow.template.list', {
       select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY']
     });
     
@@ -109,19 +113,6 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
     res.json(bps);
   } catch (error) {
     console.error('Error getting business processes:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Сохранение вебхука
-app.post('/api/webhook', async (req, res) => {
-  try {
-    const { webhook } = req.body;
-    const config = await loadConfig();
-    config.webhook = webhook;
-    await saveConfig(config);
-    res.json({ success: true });
-  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -202,6 +193,12 @@ app.delete('/api/tasks/:id', async (req, res) => {
 app.post('/api/tasks/:id/run', async (req, res) => {
   try {
     const config = await loadConfig();
+    const webhook = req.headers['x-webhook-url'];
+    
+    if (!webhook) {
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-URL header' });
+    }
+    
     const taskId = parseInt(req.params.id);
     const task = config.tasks.find(t => t.id === taskId);
     
@@ -209,7 +206,7 @@ app.post('/api/tasks/:id/run', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    const result = await runTask(config, task);
+    const result = await runTask(config, task, webhook);
     res.json(result);
   } catch (error) {
     console.error('Error running task:', error);
@@ -228,7 +225,7 @@ app.get('/api/logs', async (req, res) => {
 });
 
 // Функция запуска задачи
-async function runTask(config, task) {
+async function runTask(config, task, webhook) {
   const log = {
     id: Date.now(),
     taskId: task.id,
@@ -239,7 +236,7 @@ async function runTask(config, task) {
   };
   
   try {
-    const elements = await callBitrixApi(config.webhook, 'crm.item.list', {
+    const elements = await callBitrixApi(webhook, 'crm.item.list', {
       entityTypeId: task.entityTypeId,
       filter: {
         stageId: task.stages
@@ -247,28 +244,28 @@ async function runTask(config, task) {
     });
     
     const items = elements.items || [];
-    log.details.push(`Найдено элементов: ${items.length}`);
+    log.details.push('Найдено элементов: ' + items.length);
     
     let started = 0;
     let errors = 0;
     
     for (const item of items) {
       try {
-        await callBitrixApi(config.webhook, 'bizproc.workflow.start', {
+        await callBitrixApi(webhook, 'bizproc.workflow.start', {
           TEMPLATE_ID: task.bpId,
-          DOCUMENT_ID: [`crm_item_${task.entityTypeId}`, item.id]
+          DOCUMENT_ID: ['crm_item_' + task.entityTypeId, item.id]
         });
         started++;
       } catch (error) {
-        console.error(`Error starting BP for element ${item.id}:`, error);
+        console.error('Error starting BP for element ' + item.id + ':', error);
         errors++;
-        log.details.push(`Ошибка для элемента ${item.id}: ${error.message}`);
+        log.details.push('Ошибка для элемента ' + item.id + ': ' + error.message);
       }
     }
     
     log.status = errors > 0 ? 'warning' : 'success';
     log.result = { started, errors, total: items.length };
-    log.details.push(`Запущено: ${started}, Ошибок: ${errors}`);
+    log.details.push('Запущено: ' + started + ', Ошибок: ' + errors);
     
     task.lastRun = new Date().toISOString();
     task.lastResult = log.result;
@@ -284,7 +281,7 @@ async function runTask(config, task) {
     return log;
   } catch (error) {
     log.status = 'error';
-    log.details.push(`Ошибка: ${error.message}`);
+    log.details.push('Ошибка: ' + error.message);
     
     config.logs = config.logs || [];
     config.logs.unshift(log);
@@ -305,16 +302,23 @@ async function initCronJobs() {
   }
   cronJobs = {};
   
+  // Для cron нужен вебхук из переменной окружения
+  const webhook = process.env.BITRIX_WEBHOOK;
+  if (!webhook) {
+    console.log('No BITRIX_WEBHOOK env var, skipping cron initialization');
+    return;
+  }
+  
   for (const task of config.tasks || []) {
     if (!task.active || !task.runTime) continue;
     
     const [hours, minutes] = task.runTime.split(':');
-    const cronExpression = `${minutes} ${hours} * * *`;
+    const cronExpression = minutes + ' ' + hours + ' * * *';
     
     cronJobs[task.id] = cron.schedule(cronExpression, async () => {
-      console.log(`Running scheduled task: ${task.smartProcessName}`);
+      console.log('Running scheduled task: ' + task.smartProcessName);
       try {
-        await runTask(config, task);
+        await runTask(config, task, webhook);
       } catch (error) {
         console.error('Scheduled task error:', error);
       }
