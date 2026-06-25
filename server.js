@@ -100,13 +100,15 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
   }
 });
 
-// Получение бизнес-процессов - возвращаем все для выбора
+// Получение бизнес-процессов для ЭДО
 app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   try {
     const webhook = getWebhookFromHeaders(req);
     if (!webhook) {
       return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
     }
+    
+    const { entityTypeId } = req.params;
     
     const result = await callBitrixApi(webhook, 'bizproc.workflow.template.list', {
       select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY']
@@ -116,13 +118,25 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
       return res.json([]);
     }
     
-    // Возвращаем все БП с пометкой ENTITY
-    const bps = result.map(bp => ({
-      id: bp.ID,
-      name: (bp.NAME || 'БП #' + bp.ID) + ' [' + bp.ENTITY + ']',
-      description: bp.DESCRIPTION,
-      entity: bp.ENTITY
-    }));
+    // Фильтруем БП для смарт-процесса ЭДО
+    // ENTITY может быть: CRM_DYNAMIC_138, DYNAMIC_138, или просто содержать 138
+    const entityPatterns = [
+      'CRM_DYNAMIC_' + entityTypeId,
+      'DYNAMIC_' + entityTypeId,
+      'DYNAMIC'
+    ];
+    
+    const bps = result
+      .filter(bp => {
+        const entity = bp.ENTITY || '';
+        return entityPatterns.some(pattern => entity.includes(pattern));
+      })
+      .map(bp => ({
+        id: bp.ID,
+        name: bp.NAME || 'БП #' + bp.ID,
+        description: bp.DESCRIPTION,
+        entity: bp.ENTITY
+      }));
     
     res.json(bps);
   } catch (error) {
