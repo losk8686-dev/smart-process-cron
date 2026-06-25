@@ -20,7 +20,6 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
-  const [debugInfo, setDebugInfo] = useState('');
 
   // Функция для создания заголовков с вебхуком (кодируем URL)
   const getHeaders = () => {
@@ -39,10 +38,8 @@ function App() {
 
   const loadData = async () => {
     setLoading(true);
-    setDebugInfo('Начинаем загрузку...');
     try {
       // Загружаем задачи и логи
-      setDebugInfo('Загружаем задачи и логи...');
       const [tasksRes, logsRes] = await Promise.all([
         fetch('/api/tasks'),
         fetch('/api/logs')
@@ -53,51 +50,31 @@ function App() {
 
       setTasks(tasksData);
       setLogs(logsData);
-      setDebugInfo('Задачи: ' + tasksData.length + ', Логи: ' + logsData.length);
 
       // Загружаем стадии
-      setDebugInfo('Загружаем стадии...');
       const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID, {
         headers: getHeaders()
       });
       const stagesData = await stagesRes.json();
       
-      setDebugInfo('Стадии ответ: ' + JSON.stringify(stagesData).substring(0, 200));
-      
       if (stagesData.error) {
-        throw new Error('Стадии: ' + stagesData.error);
+        throw new Error(stagesData.error);
       }
-      
-      if (Array.isArray(stagesData)) {
-        setStages(stagesData);
-        setDebugInfo('Стадии загружены: ' + stagesData.length);
-      } else {
-        setDebugInfo('Стадии не массив: ' + typeof stagesData);
-      }
+      setStages(stagesData);
 
       // Загружаем бизнес-процессы
-      setDebugInfo('Загружаем БП...');
       const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID, {
         headers: getHeaders()
       });
       const bpData = await bpRes.json();
       
-      setDebugInfo('БП ответ: ' + JSON.stringify(bpData).substring(0, 200));
-      
       if (bpData.error) {
-        throw new Error('БП: ' + bpData.error);
+        throw new Error(bpData.error);
       }
-      
-      if (Array.isArray(bpData)) {
-        setBusinessProcesses(bpData);
-        setDebugInfo('БП загружены: ' + bpData.length + ', Стадии: ' + stagesData.length);
-      } else {
-        setDebugInfo('БП не массив: ' + typeof bpData);
-      }
+      setBusinessProcesses(bpData);
     } catch (err) {
       console.error('Error loading data:', err);
       setStatus({ type: 'error', message: 'Ошибка загрузки: ' + err.message });
-      setDebugInfo('Ошибка: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -213,20 +190,6 @@ function App() {
     ),
 
     status.message && React.createElement('div', { className: 'status ' + status.type, style: { marginBottom: '20px' } }, status.message),
-    
-    debugInfo && React.createElement('div', { 
-      style: { 
-        padding: '10px', 
-        background: '#f0f0f0', 
-        marginBottom: '10px', 
-        fontSize: '12px', 
-        fontFamily: 'monospace',
-        borderRadius: '4px'
-      } 
-    }, 
-      React.createElement('strong', null, 'Debug: '), 
-      debugInfo
-    ),
 
     React.createElement('div', { className: 'tabs' },
       React.createElement('div', { 
@@ -361,11 +324,14 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
   const [loading, setLoading] = useState(false);
 
   const toggleStage = (stageId) => {
-    setSelectedStages(prev => 
-      prev.includes(stageId) 
-        ? prev.filter(id => id !== stageId)
-        : [...prev, stageId]
-    );
+    setSelectedStages(prev => {
+      const isSelected = prev.includes(stageId);
+      if (isSelected) {
+        return prev.filter(id => id !== stageId);
+      } else {
+        return [...prev, stageId];
+      }
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -422,22 +388,28 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
           React.createElement('label', null, 'Стадии ЭДО (' + stages.length + ' доступно)'),
           React.createElement('div', { className: 'stage-list' },
             stages.length > 0 ?
-              stages.map(stage => 
-                React.createElement('label', { 
-                  key: stage.id, 
-                  className: 'stage-item ' + (selectedStages.includes(stage.id) ? 'selected' : ''),
-                  style: { cursor: 'pointer' },
-                  onClick: () => toggleStage(stage.id)
-                },
-                  React.createElement('input', { 
-                    type: 'checkbox', 
-                    checked: selectedStages.includes(stage.id),
-                    onChange: () => {},
-                    style: { display: 'none' }
-                  }),
-                  stage.name
-                )
-              ) :
+              stages.map(stage => {
+                const isSelected = selectedStages.includes(stage.id);
+                return React.createElement('div', { 
+                  key: stage.id,
+                  className: 'stage-item ' + (isSelected ? 'selected' : ''),
+                  style: { 
+                    cursor: 'pointer',
+                    padding: '8px 12px',
+                    margin: '4px',
+                    borderRadius: '16px',
+                    display: 'inline-block',
+                    border: '2px solid ' + (isSelected ? '#1a73e8' : 'transparent'),
+                    background: isSelected ? '#e8f0fe' : '#e8eaed',
+                    color: isSelected ? '#1967d2' : '#5f6368'
+                  },
+                  onClick: (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleStage(stage.id);
+                  }
+                }, stage.name);
+              }) :
               React.createElement('p', { style: { color: '#999' } }, 'Нет доступных стадий. Проверьте вебхук.')
           )
         ),
