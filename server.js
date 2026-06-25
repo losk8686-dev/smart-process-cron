@@ -119,7 +119,6 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
     }
     
     // Фильтруем БП для смарт-процесса ЭДО
-    // ENTITY может быть: CRM_DYNAMIC_138, DYNAMIC_138, или просто содержать 138
     const entityPatterns = [
       'CRM_DYNAMIC_' + entityTypeId,
       'DYNAMIC_' + entityTypeId,
@@ -141,6 +140,41 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
     res.json(bps);
   } catch (error) {
     console.error('Error getting business processes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Подсчёт сущностей в стадиях (без запуска БП)
+app.post('/api/tasks/:id/count', async (req, res) => {
+  try {
+    const webhook = getWebhookFromHeaders(req);
+    if (!webhook) {
+      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
+    }
+    
+    const config = await loadConfig();
+    const taskId = parseInt(req.params.id);
+    const task = config.tasks.find(t => t.id === taskId);
+    
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+    
+    const elements = await callBitrixApi(webhook, 'crm.item.list', {
+      entityTypeId: task.entityTypeId,
+      filter: {
+        stageId: task.stages
+      }
+    });
+    
+    const items = elements.items || [];
+    
+    res.json({
+      count: items.length,
+      stages: task.stagesNames || task.stages
+    });
+  } catch (error) {
+    console.error('Error counting elements:', error);
     res.status(500).json({ error: error.message });
   }
 });

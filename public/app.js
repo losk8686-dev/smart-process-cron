@@ -30,6 +30,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
+  const [entityCounts, setEntityCounts] = useState({});
 
   // Функция для создания заголовков с вебхуком (кодируем URL)
   const getHeaders = () => {
@@ -82,6 +83,22 @@ function App() {
         throw new Error(bpData.error);
       }
       setBusinessProcesses(bpData);
+
+      // Подсчитываем сущности для каждой задачи
+      const counts = {};
+      for (const task of tasksData) {
+        try {
+          const countRes = await fetch('/api/tasks/' + task.id + '/count', {
+            method: 'POST',
+            headers: getHeaders()
+          });
+          const countData = await countRes.json();
+          counts[task.id] = countData.count || 0;
+        } catch (err) {
+          counts[task.id] = 0;
+        }
+      }
+      setEntityCounts(counts);
     } catch (err) {
       console.error('Error loading data:', err);
       setStatus({ type: 'error', message: 'Ошибка загрузки: ' + err.message });
@@ -229,8 +246,9 @@ function App() {
           React.createElement('button', { onClick: () => setShowModal(true) }, 'Создать задачу')
         ) :
         React.createElement('div', { className: 'task-list' },
-          tasks.map(task => 
-            React.createElement('div', { key: task.id, className: 'task-item' },
+          tasks.map(task => {
+            const entityCount = entityCounts[task.id] || 0;
+            return React.createElement('div', { key: task.id, className: 'task-item' },
               React.createElement('h3', null, 'ЭДО'),
               React.createElement('div', { className: 'task-details' },
                 React.createElement('div', null,
@@ -249,7 +267,16 @@ function App() {
                   React.createElement('strong', null, 'Статус:'), ' ',
                   React.createElement('span', { className: 'badge ' + (task.active ? 'badge-success' : 'badge-warning') },
                     task.active ? 'Активна' : 'Остановлена'
-                  )
+                  ),
+                  React.createElement('br', null),
+                  React.createElement('strong', null, 'Сущностей для обработки:'), ' ',
+                  React.createElement('span', { 
+                    style: { 
+                      fontWeight: 'bold', 
+                      color: entityCount > 0 ? '#1a73e8' : '#999',
+                      fontSize: '1.1em'
+                    } 
+                  }, entityCount)
                 )
               ),
               
@@ -258,23 +285,30 @@ function App() {
                 'Запущено: ' + task.lastResult.started + ', Ошибок: ' + task.lastResult.errors + ', Всего: ' + task.lastResult.total
               ),
 
-              React.createElement('div', { className: 'task-actions' },
+              React.createElement('div', { className: 'task-actions', style: { display: 'flex', gap: '8px', marginTop: '15px' } },
                 React.createElement('button', { 
                   onClick: () => runTask(task.id),
                   disabled: !task.active || loading,
-                  style: { background: '#34a853' }
+                  style: { 
+                    background: '#34a853', 
+                    flex: '2',
+                    fontSize: '14px',
+                    padding: '10px'
+                  }
                 }, loading ? 'Запуск...' : '▶ Запустить сейчас'),
                 React.createElement('button', { 
                   className: 'secondary',
-                  onClick: () => toggleTask(task)
-                }, task.active ? '⏸ Остановить' : '▶ Запустить'),
+                  onClick: () => toggleTask(task),
+                  style: { flex: '1' }
+                }, task.active ? '⏸ Остановить' : '▶ Активировать'),
                 React.createElement('button', { 
                   className: 'secondary danger',
-                  onClick: () => deleteTask(task.id)
+                  onClick: () => deleteTask(task.id),
+                  style: { flex: '1' }
                 }, '🗑 Удалить')
               )
-            )
-          )
+            );
+          })
         )
     ),
 
