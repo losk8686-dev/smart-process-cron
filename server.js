@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
-// Хранилище конфигурации (только задачи и логи, без вебхука)
+// Хранилище конфигурации
 const CONFIG_FILE = join(__dirname, 'data', 'config.json');
 
 async function loadConfig() {
@@ -35,7 +35,6 @@ function getWebhookFromHeaders(req) {
   }
   
   try {
-    // Декодируем base64
     const decoded = decodeURIComponent(escape(Buffer.from(encoded, 'base64').toString('utf8')));
     return decoded;
   } catch (error) {
@@ -51,21 +50,108 @@ async function callBitrixApi(webhook, method, params = {}) {
   }
   
   const url = webhook.endsWith('/') ? webhook : webhook + '/';
-  const response = await fetch(url + method, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params)
-  });
   
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(data.error_description || data.error);
+  // Таймаут для запроса (30 секунд)
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  
+  try {
+    const response = await fetch(url + method, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeout);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error_description || data.error);
+    }
+    
+    return data.result;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      throw new Error('Request timeout - Битрикс24 не отвечает более 30 секунд');
+    }
+    throw error;
   }
-  
-  return data.result;
 }
 
-// Получение стадий для ЭДО (entityTypeId: 138)
+// Функция для получения ВСЕХ элементов с пагинацией
+async function getAllElements(webhook, entityTypeId, stages) {
+  const allItems = [];
+  let start = 0;
+  const limit = 50;
+  const maxIterations = 200; // Максимум 200 итераций (200 * 50 = 10000 элементов)
+  let iterations = 0;
+  
+  while (true) {
+    iterations++;
+    if (iterations > maxIterations) {
+      console.error(`Safety limit exceeded: ${maxIterations} iterations`);
+      break;
+    }
+    
+    console.log(`Fetching elements: start=${start}, limit=${limit}, iteration=${iterations}`);
+    
+    let result;
+    try {
+      result = await callBitrixApi(webhook, 'crm.item.list', {
+        entityTypeId: entityTypeId,
+        filter: {
+          stageId: stages
+        },
+        start: start,
+        limit: limit
+      });
+    } catch (error) {
+      console.error(`Error fetching elements at start=${start}:`, error.message);
+      break;
+    }
+    
+    if (!result || typeof result !== 'object') {
+      console.error('Invalid API response:', result);
+      break;
+    }
+    
+    const items = Array.isArray(result.items) ? result.items : [];
+    console.log(`Received ${items.length} items`);
+    
+    if (items.length === 0) {
+      console.log('Empty response - stopping');
+      break;
+    }
+    
+    allItems.push(...items);
+    
+    if (items.length < limit) {
+      console.log('Last page reached');
+      break;
+    }
+    
+    if (result.total && allItems.length >= parseInt(result.total)) {
+      console.log('All items fetched based on total');
+      break;
+    }
+    
+    start += limit;
+    
+    // Задержка между запросами чтобы не перегружать API
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  console.log(`Total items fetched: ${allItems.length}`);
+  return allItems;
+}
+
+// Получение стадий для ЭДО
 app.get('/api/stages/:entityTypeId', async (req, res) => {
   try {
     const webhook = getWebhookFromHeaders(req);
@@ -111,24 +197,19 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
     const { entityTypeId } = req.params;
     
     const result = await callBitrixApi(webhook, 'bizproc.workflow.template.list', {
-      select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY']
+      select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY'],
+      limit: 100
     });
     
     if (!Array.isArray(result)) {
       return res.json([]);
     }
     
-    // Фильтруем БП для смарт-процесса ЭДО
-    const entityPatterns = [
-      'CRM_DYNAMIC_' + entityTypeId,
-      'DYNAMIC_' + entityTypeId,
-      'DYNAMIC'
-    ];
-    
+    // Фильтруем БП для смарт-процессов (Dynamic)
     const bps = result
       .filter(bp => {
         const entity = bp.ENTITY || '';
-        return entityPatterns.some(pattern => entity.includes(pattern));
+        return entity.includes('Dynamic') || entity.includes('DYNAMIC');
       })
       .map(bp => ({
         id: bp.ID,
@@ -144,7 +225,7 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   }
 });
 
-// Подсчёт сущностей в стадиях (без запуска БП) - с увеличенным лимитом
+// Подсчёт сущностей в стадиях
 app.post('/api/tasks/:id/count', async (req, res) => {
   try {
     const webhook = getWebhookFromHeaders(req);
@@ -160,27 +241,7 @@ app.post('/api/tasks/:id/count', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    // Получаем все элементы с увеличенным лимитом
-    const allItems = [];
-    let start = 0;
-    const limit = 5000;
-    
-    while (true) {
-      const elements = await callBitrixApi(webhook, 'crm.item.list', {
-        entityTypeId: task.entityTypeId,
-        filter: {
-          stageId: task.stages
-        },
-        start: start,
-        limit: limit
-      });
-      
-      const items = elements.items || [];
-      allItems.push(...items);
-      
-      if (items.length < limit) break;
-      start += limit;
-    }
+    const allItems = await getAllElements(webhook, task.entityTypeId, task.stages);
     
     res.json({
       count: allItems.length,
@@ -299,7 +360,7 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-// Функция запуска задачи
+// Функция запуска задачи - ИСПРАВЛЕННАЯ
 async function runTask(config, task, webhook) {
   const log = {
     id: Date.now(),
@@ -311,27 +372,8 @@ async function runTask(config, task, webhook) {
   };
   
   try {
-    // Получаем ВСЕ элементы с увеличенным лимитом
-    const allItems = [];
-    let start = 0;
-    const limit = 5000;
-    
-    while (true) {
-      const elements = await callBitrixApi(webhook, 'crm.item.list', {
-        entityTypeId: task.entityTypeId,
-        filter: {
-          stageId: task.stages
-        },
-        start: start,
-        limit: limit
-      });
-      
-      const items = elements.items || [];
-      allItems.push(...items);
-      
-      if (items.length < limit) break;
-      start += limit;
-    }
+    // Получаем ВСЕ элементы с пагинацией
+    const allItems = await getAllElements(webhook, task.entityTypeId, task.stages);
     
     log.details.push('Найдено элементов: ' + allItems.length);
     
@@ -341,18 +383,24 @@ async function runTask(config, task, webhook) {
     
     for (const item of allItems) {
       try {
-        // Пробуем разные форматы DOCUMENT_ID
-        const documentId = ['crm_item_' + task.entityTypeId, item.id];
+        // ИСПРАВЛЕНО: Используем crm.automation.trigger вместо bizproc.workflow.start
+        const target = `DYNAMIC_${task.entityTypeId}_${item.id}`;
         
-        console.log('Starting BP for item:', item.id, 'with template:', task.bpId);
+        console.log('Starting BP for item:', item.id, 'with target:', target);
         
-        const result = await callBitrixApi(webhook, 'bizproc.workflow.start', {
-          TEMPLATE_ID: task.bpId,
-          DOCUMENT_ID: documentId
+        const result = await callBitrixApi(webhook, 'crm.automation.trigger', {
+          code: 'bizproc',
+          entityTypeId: parseInt(task.entityTypeId),
+          entityId: item.id,
+          target: target
         });
         
-        console.log('BP started successfully:', result);
+        console.log('BP triggered successfully for item:', item.id, 'result:', result);
         started++;
+        
+        // Задержка между запусками чтобы не перегружать API
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
       } catch (error) {
         console.error('Error starting BP for element ' + item.id + ':', error);
         errors++;
@@ -405,7 +453,6 @@ async function initCronJobs() {
   }
   cronJobs = {};
   
-  // Для cron нужен вебхук из переменной окружения
   const webhook = process.env.BITRIX_WEBHOOK;
   if (!webhook) {
     console.log('No BITRIX_WEBHOOK env var, skipping cron initialization');
