@@ -51,6 +51,8 @@ async function callBitrixApi(webhook, method, params = {}) {
   }
   
   const url = webhook.endsWith('/') ? webhook : webhook + '/';
+  console.log('Calling Bitrix API:', method, 'with URL:', url);
+  
   const response = await fetch(url + method, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -58,6 +60,8 @@ async function callBitrixApi(webhook, method, params = {}) {
   });
   
   const data = await response.json();
+  console.log('Bitrix API response:', JSON.stringify(data).substring(0, 200));
+  
   if (data.error) {
     throw new Error(data.error_description || data.error);
   }
@@ -74,14 +78,18 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
     }
     
     const { entityTypeId } = req.params;
+    console.log('Getting stages for entityTypeId:', entityTypeId);
     
     const result = await callBitrixApi(webhook, 'crm.status.list', {
       order: { SORT: 'ASC' }
     });
     
     if (!Array.isArray(result)) {
+      console.log('Stages result is not array:', typeof result);
       return res.json([]);
     }
+    
+    console.log('Total statuses received:', result.length);
     
     const prefix = 'DT' + entityTypeId + '_';
     const stages = result
@@ -93,6 +101,7 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
         color: stage.COLOR
       }));
     
+    console.log('Filtered stages:', stages.length);
     res.json(stages);
   } catch (error) {
     console.error('Error getting stages:', error);
@@ -109,24 +118,29 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
     }
     
     const { entityTypeId } = req.params;
+    console.log('Getting BP for entityTypeId:', entityTypeId);
     
     const result = await callBitrixApi(webhook, 'bizproc.workflow.template.list', {
       select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY']
     });
     
     if (!Array.isArray(result)) {
+      console.log('BP result is not array:', typeof result);
       return res.json([]);
     }
     
-    const entityPrefix = 'DYNAMIC_' + entityTypeId;
-    const bps = result
-      .filter(bp => bp.ENTITY === entityPrefix || bp.ENTITY === 'DYNAMIC')
-      .map(bp => ({
-        id: bp.ID,
-        name: bp.NAME || 'БП #' + bp.ID,
-        description: bp.DESCRIPTION
-      }));
+    console.log('Total BP received:', result.length);
+    console.log('First BP:', JSON.stringify(result[0]).substring(0, 200));
     
+    // Временно возвращаем все БП без фильтрации для диагностики
+    const bps = result.map(bp => ({
+      id: bp.ID,
+      name: bp.NAME || 'БП #' + bp.ID,
+      description: bp.DESCRIPTION,
+      entity: bp.ENTITY
+    }));
+    
+    console.log('Returning BP:', bps.length);
     res.json(bps);
   } catch (error) {
     console.error('Error getting business processes:', error);
