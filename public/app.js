@@ -4,10 +4,20 @@ const { useState, useEffect } = React;
 const EDO_ENTITY_TYPE_ID = '138';
 const EDO_NAME = 'ЭДО';
 
+// Часовой пояс сервера
+const SERVER_TIMEZONE = 'UTC+7';
+
 // Функция для маскирования вебхука - скрываем токен после /rest/1/
 function maskWebhook(url) {
   if (!url) return '';
   return url.replace(/(\/rest\/\d+\/)[^\/]+/, '$1****');
+}
+
+// Функция для отображения времени с учетом часового пояса
+function formatTime(timeString) {
+  if (!timeString) return 'Не запускалась';
+  const date = new Date(timeString);
+  return date.toLocaleString('ru-RU', { timeZone: 'Asia/Novosibirsk' }) + ' (UTC+7)';
 }
 
 function App() {
@@ -97,7 +107,7 @@ function App() {
   };
 
   const runTask = async (taskId) => {
-    if (!confirm('Запустить задачу?')) return;
+    if (!confirm('Запустить задачу сейчас?')) return;
     
     setLoading(true);
     try {
@@ -232,9 +242,9 @@ function App() {
                   )
                 ),
                 React.createElement('div', null,
-                  React.createElement('strong', null, 'Время запуска:'), ' ' + task.runTime,
+                  React.createElement('strong', null, 'Время запуска:'), ' ' + task.runTime + ' (' + SERVER_TIMEZONE + ')',
                   React.createElement('br', null),
-                  React.createElement('strong', null, 'Последний запуск:'), ' ' + (task.lastRun ? new Date(task.lastRun).toLocaleString('ru-RU') : 'Не запускалась'),
+                  React.createElement('strong', null, 'Последний запуск:'), ' ' + formatTime(task.lastRun),
                   React.createElement('br', null),
                   React.createElement('strong', null, 'Статус:'), ' ',
                   React.createElement('span', { className: 'badge ' + (task.active ? 'badge-success' : 'badge-warning') },
@@ -251,16 +261,17 @@ function App() {
               React.createElement('div', { className: 'task-actions' },
                 React.createElement('button', { 
                   onClick: () => runTask(task.id),
-                  disabled: !task.active || loading
-                }, loading ? 'Запуск...' : 'Запустить сейчас'),
+                  disabled: !task.active || loading,
+                  style: { background: '#34a853' }
+                }, loading ? 'Запуск...' : '▶ Запустить сейчас'),
                 React.createElement('button', { 
                   className: 'secondary',
                   onClick: () => toggleTask(task)
-                }, task.active ? 'Остановить' : 'Запустить'),
+                }, task.active ? '⏸ Остановить' : '▶ Запустить'),
                 React.createElement('button', { 
                   className: 'secondary danger',
                   onClick: () => deleteTask(task.id)
-                }, 'Удалить')
+                }, '🗑 Удалить')
               )
             )
           )
@@ -276,7 +287,7 @@ function App() {
         React.createElement('div', { className: 'logs' },
           logs.map(log => 
             React.createElement('div', { key: log.id, className: 'log-entry ' + log.status },
-              React.createElement('span', { className: 'timestamp' }, new Date(log.timestamp).toLocaleString('ru-RU')),
+              React.createElement('span', { className: 'timestamp' }, formatTime(log.timestamp)),
               React.createElement('div', null,
                 React.createElement('strong', null, log.taskName),
                 React.createElement('div', null, (log.details || []).join(', ')),
@@ -299,6 +310,11 @@ function App() {
           readOnly: true,
           style: { width: '100%', padding: '10px', background: '#f5f5f5' }
         })
+      ),
+      React.createElement('div', { style: { marginTop: '10px', padding: '10px', background: '#e3f2fd', borderRadius: '4px' } },
+        React.createElement('strong', null, 'Часовой пояс сервера: '), SERVER_TIMEZONE,
+        React.createElement('br', null),
+        React.createElement('small', null, 'Все задачи запускаются по этому времени')
       ),
       React.createElement('button', { onClick: () => {
         localStorage.removeItem('b24_webhook');
@@ -429,7 +445,10 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
             value: runTime,
             onChange: (e) => setRunTime(e.target.value),
             required: true
-          })
+          }),
+          React.createElement('small', { style: { color: '#5f6368', display: 'block', marginTop: '5px' } }, 
+            'Часовой пояс: ' + SERVER_TIMEZONE
+          )
         ),
 
         React.createElement('div', { className: 'form-group' },
