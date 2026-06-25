@@ -276,7 +276,6 @@ app.post('/api/tasks', async (req, res) => {
       lastRun: null,
       active: true
     };
-    };
     
     config.tasks = config.tasks || [];
     config.tasks.push(task);
