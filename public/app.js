@@ -21,7 +21,7 @@ function formatTime(timeString) {
 }
 
 function App() {
-  const [webhook, setWebhook] = useState(localStorage.getItem('b24_webhook') || '');
+  const [webhook, setWebhook] = useState('');
   const [currentTab, setCurrentTab] = useState('tasks');
   const [tasks, setTasks] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -41,28 +41,20 @@ function App() {
     };
   };
 
-  // Загружаем вебхук с сервера при старте
+  // Загружаем вебхук с сервера при старте (безопасно)
   useEffect(() => {
-    const loadWebhookFromServer = async () => {
+    const loadWebhook = async () => {
       try {
         const res = await fetch('/api/webhook');
         const data = await res.json();
         if (data.webhook) {
           setWebhook(data.webhook);
-          localStorage.setItem('b24_webhook', data.webhook);
         }
       } catch (err) {
-        console.log('No webhook on server');
+        console.log('Could not load webhook from server');
       }
     };
-    
-    // Сначала проверяем localStorage, потом сервер
-    const savedWebhook = localStorage.getItem('b24_webhook');
-    if (savedWebhook) {
-      setWebhook(savedWebhook);
-    } else {
-      loadWebhookFromServer();
-    }
+    loadWebhook();
   }, []);
 
   useEffect(() => {
@@ -141,18 +133,6 @@ function App() {
 
     const normalizedUrl = url.endsWith('/') ? url : url + '/';
     setWebhook(normalizedUrl);
-    localStorage.setItem('b24_webhook', normalizedUrl);
-    
-    // Сохраняем на сервере
-    try {
-      await fetch('/api/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhook: normalizedUrl })
-      });
-    } catch (err) {
-      console.error('Error saving webhook to server:', err);
-    }
     
     setStatus({ type: 'success', message: 'Подключение установлено!' });
     loadData();
@@ -386,7 +366,6 @@ function App() {
         React.createElement('small', null, 'Все задачи запускаются по этому времени')
       ),
       React.createElement('button', { onClick: () => {
-        localStorage.removeItem('b24_webhook');
         setWebhook('');
         setTasks([]);
         setLogs([]);

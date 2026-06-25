@@ -270,7 +270,6 @@ app.post('/api/tasks', async (req, res) => {
     const config = await loadConfig();
     const task = {
       id: Date.now(),
-      webhook: webhook || null,
       ...req.body,
       createdAt: new Date().toISOString(),
       lastRun: null,
@@ -362,24 +361,11 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-// Сохранение вебхука на сервере
-app.post('/api/webhook', async (req, res) => {
-  try {
-    const config = await loadConfig();
-    config.webhook = req.body.webhook || null;
-    await saveConfig(config);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Получение вебхука с сервера
+// Получение вебхука с сервера (только из env vars)
 app.get('/api/webhook', async (req, res) => {
   try {
-    const config = await loadConfig();
-    // Используем сохранённый вебхук или переменную окружения
-    const webhook = config.webhook || process.env.BITRIX_WEBHOOK || null;
+    // На Render используем только переменные окружения
+    const webhook = process.env.BITRIX_WEBHOOK || null;
     res.json({ webhook: webhook });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -481,7 +467,7 @@ async function initCronJobs() {
   for (const task of config.tasks || []) {
     if (!task.active || !task.runTime) continue;
     
-    const webhook = task.webhook || process.env.BITRIX_WEBHOOK || config.webhook;
+    const webhook = process.env.BITRIX_WEBHOOK;
     if (!webhook) {
       console.log('No webhook for task:', task.smartProcessName, '- skipping');
       continue;
