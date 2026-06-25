@@ -266,9 +266,11 @@ app.get('/api/tasks', async (req, res) => {
 // Создание задачи
 app.post('/api/tasks', async (req, res) => {
   try {
+    const webhook = getWebhookFromHeaders(req);
     const config = await loadConfig();
     const task = {
       id: Date.now(),
+      webhook: webhook || null,
       ...req.body,
       createdAt: new Date().toISOString(),
       lastRun: null,
@@ -452,14 +454,14 @@ async function initCronJobs() {
   }
   cronJobs = {};
   
-  const webhook = process.env.BITRIX_WEBHOOK;
-  if (!webhook) {
-    console.log('No BITRIX_WEBHOOK env var, skipping cron initialization');
-    return;
-  }
-  
   for (const task of config.tasks || []) {
     if (!task.active || !task.runTime) continue;
+    
+    const webhook = task.webhook || process.env.BITRIX_WEBHOOK;
+    if (!webhook) {
+      console.log('No webhook for task:', task.smartProcessName, '- skipping');
+      continue;
+    }
     
     const [hours, minutes] = task.runTime.split(':');
     const cronExpression = minutes + ' ' + hours + ' * * *';
@@ -472,6 +474,8 @@ async function initCronJobs() {
         console.error('Scheduled task error:', error);
       }
     });
+    
+    console.log('Scheduled task:', task.smartProcessName, 'at', task.runTime);
   }
 }
 
