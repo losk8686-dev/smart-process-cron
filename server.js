@@ -383,19 +383,18 @@ async function runTask(config, task, webhook) {
     
     for (const item of allItems) {
       try {
-        // ИСПРАВЛЕНО: Используем crm.automation.trigger вместо bizproc.workflow.start
-        const target = `DYNAMIC_${task.entityTypeId}_${item.id}`;
+        // ИСПРАВЛЕНО: Используем bizproc.workflow.start с правильным форматом DOCUMENT_ID
+        // Формат: ["crm", "Bitrix\Crm\Integration\BizProc\Document\Dynamic", "DYNAMIC_138_26"]
+        const documentId = ['crm', 'Bitrix\\Crm\\Integration\\BizProc\\Document\\Dynamic', 'DYNAMIC_' + task.entityTypeId + '_' + item.id];
         
-        console.log('Starting BP for item:', item.id, 'with target:', target);
+        console.log('Starting BP for item:', item.id, 'with documentId:', documentId);
         
-        const result = await callBitrixApi(webhook, 'crm.automation.trigger', {
-          code: 'bizproc',
-          entityTypeId: parseInt(task.entityTypeId),
-          entityId: item.id,
-          target: target
+        const result = await callBitrixApi(webhook, 'bizproc.workflow.start', {
+          TEMPLATE_ID: task.bpId,
+          DOCUMENT_ID: documentId
         });
         
-        console.log('BP triggered successfully for item:', item.id, 'result:', result);
+        console.log('BP started successfully for item:', item.id, 'result:', result);
         started++;
         
         // Задержка между запусками чтобы не перегружать API
