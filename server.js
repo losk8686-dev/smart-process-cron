@@ -144,7 +144,7 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   }
 });
 
-// Подсчёт сущностей в стадиях (без запуска БП)
+// Подсчёт сущностей в стадиях (без запуска БП) - с увеличенным лимитом
 app.post('/api/tasks/:id/count', async (req, res) => {
   try {
     const webhook = getWebhookFromHeaders(req);
@@ -160,17 +160,30 @@ app.post('/api/tasks/:id/count', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    const elements = await callBitrixApi(webhook, 'crm.item.list', {
-      entityTypeId: task.entityTypeId,
-      filter: {
-        stageId: task.stages
-      }
-    });
+    // Получаем все элементы с увеличенным лимитом
+    const allItems = [];
+    let start = 0;
+    const limit = 5000;
     
-    const items = elements.items || [];
+    while (true) {
+      const elements = await callBitrixApi(webhook, 'crm.item.list', {
+        entityTypeId: task.entityTypeId,
+        filter: {
+          stageId: task.stages
+        },
+        start: start,
+        limit: limit
+      });
+      
+      const items = elements.items || [];
+      allItems.push(...items);
+      
+      if (items.length < limit) break;
+      start += limit;
+    }
     
     res.json({
-      count: items.length,
+      count: allItems.length,
       stages: task.stagesNames || task.stages
     });
   } catch (error) {
@@ -298,36 +311,64 @@ async function runTask(config, task, webhook) {
   };
   
   try {
-    const elements = await callBitrixApi(webhook, 'crm.item.list', {
-      entityTypeId: task.entityTypeId,
-      filter: {
-        stageId: task.stages
-      }
-    });
+    // Получаем ВСЕ элементы с увеличенным лимитом
+    const allItems = [];
+    let start = 0;
+    const limit = 5000;
     
-    const items = elements.items || [];
-    log.details.push('Найдено элементов: ' + items.length);
+    while (true) {
+      const elements = await callBitrixApi(webhook, 'crm.item.list', {
+        entityTypeId: task.entityTypeId,
+        filter: {
+          stageId: task.stages
+        },
+        start: start,
+        limit: limit
+      });
+      
+      const items = elements.items || [];
+      allItems.push(...items);
+      
+      if (items.length < limit) break;
+      start += limit;
+    }
+    
+    log.details.push('Найдено элементов: ' + allItems.length);
     
     let started = 0;
     let errors = 0;
+    const errorDetails = [];
     
-    for (const item of items) {
+    for (const item of allItems) {
       try {
-        await callBitrixApi(webhook, 'bizproc.workflow.start', {
+        // Пробуем разные форматы DOCUMENT_ID
+        const documentId = ['crm_item_' + task.entityTypeId, item.id];
+        
+        console.log('Starting BP for item:', item.id, 'with template:', task.bpId);
+        
+        const result = await callBitrixApi(webhook, 'bizproc.workflow.start', {
           TEMPLATE_ID: task.bpId,
-          DOCUMENT_ID: ['crm_item_' + task.entityTypeId, item.id]
+          DOCUMENT_ID: documentId
         });
+        
+        console.log('BP started successfully:', result);
         started++;
       } catch (error) {
         console.error('Error starting BP for element ' + item.id + ':', error);
         errors++;
-        log.details.push('Ошибка для элемента ' + item.id + ': ' + error.message);
+        const errorMsg = 'Ошибка для элемента ' + item.id + ': ' + error.message;
+        log.details.push(errorMsg);
+        errorDetails.push(errorMsg);
       }
     }
     
     log.status = errors > 0 ? 'warning' : 'success';
-    log.result = { started, errors, total: items.length };
+    log.result = { started, errors, total: allItems.length };
     log.details.push('Запущено: ' + started + ', Ошибок: ' + errors);
+    
+    if (errorDetails.length > 0) {
+      log.details.push('Примеры ошибок: ' + errorDetails.slice(0, 3).join('; '));
+    }
     
     task.lastRun = new Date().toISOString();
     task.lastResult = log.result;
