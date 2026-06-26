@@ -228,11 +228,7 @@ function App() {
                 React.createElement('div', null,
                   React.createElement('strong', null, 'Время запуска:'), ' ' + task.runTime + ' (' + SERVER_TIMEZONE + ')',
                   React.createElement('br', null),
-                  React.createElement('strong', null, 'Последний запуск:'), ' ' + 
-                    (task.isRunning 
-                      ? React.createElement('span', { style: { color: '#1a73e8', fontWeight: 'bold' } }, '⏳ Выполняется...')
-                      : formatTime(task.lastRun)
-                    ),
+                  React.createElement('strong', null, 'Последний запуск:'), ' ' + formatTime(task.lastRun),
                   React.createElement('br', null),
                   React.createElement('strong', null, 'Статус:'), ' ',
                   React.createElement('span', { className: 'badge ' + (task.active ? 'badge-success' : 'badge-warning') },
