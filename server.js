@@ -235,8 +235,8 @@ app.post('/api/tasks/:id/count', async (req, res) => {
     }
     
     const config = await loadConfig();
-    const taskId = parseInt(req.params.id);
-    const task = config.tasks.find(t => t.id === taskId);
+    const taskId = req.params.id;
+    const task = config.tasks.find(t => String(t.id) === String(taskId));
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
@@ -313,7 +313,7 @@ app.put('/api/tasks/:id', async (req, res) => {
 app.delete('/api/tasks/:id', async (req, res) => {
   try {
     const config = await loadConfig();
-    const taskId = parseInt(req.params.id);
+    const taskId = req.params.id;
     await deleteTask(taskId);
     
     await initCronJobs();
@@ -333,8 +333,8 @@ app.post('/api/tasks/:id/run', async (req, res) => {
       return res.status(500).json({ error: 'BITRIX_WEBHOOK not configured on server' });
     }
     
-    const taskId = parseInt(req.params.id);
-    const task = config.tasks.find(t => t.id === taskId);
+    const taskId = req.params.id;
+    const task = config.tasks.find(t => String(t.id) === String(taskId));
     
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
