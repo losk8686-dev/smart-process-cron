@@ -102,14 +102,19 @@ async function getAllElements(WEBHOOK, entityTypeId, stages) {
     
     let result;
     try {
-      result = await callBitrixApi(WEBHOOK, 'crm.item.list', {
+      const params = {
         entityTypeId: entityTypeId,
         filter: {
           stageId: stages
         },
         start: start,
         limit: limit
-      });
+      };
+      console.log('API Request params:', JSON.stringify(params));
+      result = await callBitrixApi(WEBHOOK, 'crm.item.list', params);
+      console.log('API Response keys:', Object.keys(result || {}));
+      console.log('API Response total:', result?.total);
+      console.log('API Response items count:', result?.items?.length);
     } catch (error) {
       console.error(`Error fetching elements at start=${start}:`, error.message);
       break;
