@@ -10,6 +10,33 @@ const PORT = process.env.PORT || 3000;
 const app = express();
 app.use(express.json());
 
+// Basic Auth защита
+const AUTH_USER = process.env.AUTH_USER || 'admin';
+const AUTH_PASS = process.env.AUTH_PASS || 'admin';
+
+function basicAuth(req, res, next) {
+  const auth = req.headers.authorization;
+  
+  if (!auth) {
+    res.set('WWW-Authenticate', 'Basic realm="Smart Process Cron"');
+    return res.status(401).send('Authentication required');
+  }
+  
+  const credentials = Buffer.from(auth.split(' ')[1], 'base64').toString().split(':');
+  const user = credentials[0];
+  const pass = credentials[1];
+  
+  if (user !== AUTH_USER || pass !== AUTH_PASS) {
+    res.set('WWW-Authenticate', 'Basic realm="Smart Process Cron"');
+    return res.status(401).send('Invalid credentials');
+  }
+  
+  next();
+}
+
+// Применяем Basic Auth ко всем маршрутам
+app.use(basicAuth);
+
 // Хранилище конфигурации
 const CONFIG_FILE = join(__dirname, 'data', 'config.json');
 

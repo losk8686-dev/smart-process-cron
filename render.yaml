@@ -9,3 +9,7 @@ services:
         value: production
       - key: BITRIX_WEBHOOK
         value: https://cab.bitrix24.ru/rest/1/s3a6coos9gt5lsw9/
+      - key: AUTH_USER
+        value: admin
+      - key: AUTH_PASS
+        value: changeme123
