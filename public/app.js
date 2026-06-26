@@ -7,12 +7,6 @@ const EDO_NAME = 'ЭДО';
 // Часовой пояс сервера
 const SERVER_TIMEZONE = 'UTC+7';
 
-// Функция для маскирования вебхука - скрываем токен после /rest/1/
-function maskWebhook(url) {
-  if (!url) return '';
-  return url.replace(/(\/rest\/\d+\/)[^\/]+/, '$1****');
-}
-
 // Функция для отображения времени с учетом часового пояса
 function formatTime(timeString) {
   if (!timeString) return 'Не запускалась';
@@ -21,7 +15,6 @@ function formatTime(timeString) {
 }
 
 function App() {
-  const [webhook, setWebhook] = useState('');
   const [currentTab, setCurrentTab] = useState('tasks');
   const [tasks, setTasks] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -31,37 +24,12 @@ function App() {
   const [status, setStatus] = useState({ type: '', message: '' });
   const [showModal, setShowModal] = useState(false);
   const [entityCounts, setEntityCounts] = useState({});
+  const [serverConnected, setServerConnected] = useState(false);
 
-  // Функция для создания заголовков с вебхуком (кодируем URL)
-  const getHeaders = () => {
-    const encodedWebhook = btoa(unescape(encodeURIComponent(webhook)));
-    return {
-      'Content-Type': 'application/json',
-      'X-Webhook-Encoded': encodedWebhook
-    };
-  };
-
-  // Загружаем вебхук с сервера при старте (безопасно)
+  // Загружаем данные при старте
   useEffect(() => {
-    const loadWebhook = async () => {
-      try {
-        const res = await fetch('/api/webhook');
-        const data = await res.json();
-        if (data.webhook) {
-          setWebhook(data.webhook);
-        }
-      } catch (err) {
-        console.log('Could not load webhook from server');
-      }
-    };
-    loadWebhook();
+    loadData();
   }, []);
-
-  useEffect(() => {
-    if (webhook) {
-      loadData();
-    }
-  }, [webhook]);
 
   const loadData = async () => {
     setLoading(true);
@@ -78,10 +46,8 @@ function App() {
       setTasks(tasksData);
       setLogs(logsData);
 
-      // Загружаем стадии
-      const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID, {
-        headers: getHeaders()
-      });
+      // Загружаем стадии (сервер использует env var)
+      const stagesRes = await fetch('/api/stages/' + EDO_ENTITY_TYPE_ID);
       const stagesData = await stagesRes.json();
       
       if (stagesData.error) {
@@ -90,9 +56,7 @@ function App() {
       setStages(stagesData);
 
       // Загружаем бизнес-процессы
-      const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID, {
-        headers: getHeaders()
-      });
+      const bpRes = await fetch('/api/business-processes/' + EDO_ENTITY_TYPE_ID);
       const bpData = await bpRes.json();
       
       if (bpData.error) {
@@ -105,8 +69,7 @@ function App() {
       for (const task of tasksData) {
         try {
           const countRes = await fetch('/api/tasks/' + task.id + '/count', {
-            method: 'POST',
-            headers: getHeaders()
+            method: 'POST'
           });
           const countData = await countRes.json();
           counts[task.id] = countData.count || 0;
@@ -115,27 +78,15 @@ function App() {
         }
       }
       setEntityCounts(counts);
+      
+      setServerConnected(true);
     } catch (err) {
       console.error('Error loading data:', err);
       setStatus({ type: 'error', message: 'Ошибка загрузки: ' + err.message });
+      setServerConnected(false);
     } finally {
       setLoading(false);
     }
-  };
-
-  const saveWebhook = async (e) => {
-    e.preventDefault();
-    const url = webhook.trim();
-    if (!url) {
-      setStatus({ type: 'error', message: 'Введите URL вебхука' });
-      return;
-    }
-
-    const normalizedUrl = url.endsWith('/') ? url : url + '/';
-    setWebhook(normalizedUrl);
-    
-    setStatus({ type: 'success', message: 'Подключение установлено!' });
-    loadData();
   };
 
   const runTask = async (taskId) => {
@@ -144,8 +95,7 @@ function App() {
     setLoading(true);
     try {
       const res = await fetch('/api/tasks/' + taskId + '/run', { 
-        method: 'POST',
-        headers: getHeaders()
+        method: 'POST'
       });
       const data = await res.json();
       
@@ -198,29 +148,19 @@ function App() {
     }
   };
 
-  if (!webhook) {
+  // Показываем статус подключения
+  if (!serverConnected && !loading) {
     return React.createElement('div', { className: 'container' },
       React.createElement('div', { className: 'header' },
         React.createElement('h1', null, 'Smart Process Cron - ЭДО'),
         React.createElement('p', null, 'Автоматический запуск бизнес-процессов для ЭДО')
       ),
       React.createElement('div', { className: 'card' },
-        React.createElement('h2', null, 'Настройка подключения'),
-        React.createElement('p', null, 'Для работы приложения необходимо указать входящий вебхук Битрикс24.'),
-        React.createElement('form', { onSubmit: saveWebhook },
-          React.createElement('div', { className: 'form-group' },
-            React.createElement('label', null, 'Входящий вебхук URL'),
-            React.createElement('input', {
-              type: 'text',
-              value: webhook,
-              onChange: (e) => setWebhook(e.target.value),
-              placeholder: 'https://your-portal.bitrix24.ru/rest/1/...',
-              required: true
-            })
-          ),
-          React.createElement('button', { type: 'submit' }, 'Сохранить и подключиться')
+        React.createElement('h2', null, 'Статус подключения'),
+        React.createElement('div', { className: 'status error' }, 
+          'Сервер не настроен. Пожалуйста, убедитесь, что переменная окружения BITRIX_WEBHOOK установлена на сервере.'
         ),
-        status.message && React.createElement('div', { className: 'status ' + status.type }, status.message)
+        React.createElement('button', { onClick: loadData }, 'Повторить попытку')
       )
     );
   }
@@ -241,11 +181,7 @@ function App() {
       React.createElement('div', { 
         className: 'tab ' + (currentTab === 'logs' ? 'active' : ''),
         onClick: () => setCurrentTab('logs')
-      }, 'Логи (' + logs.length + ')'),
-      React.createElement('div', { 
-        className: 'tab ' + (currentTab === 'settings' ? 'active' : ''),
-        onClick: () => setCurrentTab('settings')
-      }, 'Настройки')
+      }, 'Логи (' + logs.length + ')')
     ),
 
     currentTab === 'tasks' && React.createElement('div', { className: 'card' },
@@ -347,29 +283,6 @@ function App() {
             )
           )
         )
-    ),
-
-    currentTab === 'settings' && React.createElement('div', { className: 'card' },
-      React.createElement('h2', null, 'Настройки'),
-      React.createElement('div', { className: 'form-group' },
-        React.createElement('label', null, 'Текущий вебхук'),
-        React.createElement('input', { 
-          type: 'text', 
-          value: maskWebhook(webhook), 
-          readOnly: true,
-          style: { width: '100%', padding: '10px', background: '#f5f5f5' }
-        })
-      ),
-      React.createElement('div', { style: { marginTop: '10px', padding: '10px', background: '#e3f2fd', borderRadius: '4px' } },
-        React.createElement('strong', null, 'Часовой пояс сервера: '), SERVER_TIMEZONE,
-        React.createElement('br', null),
-        React.createElement('small', null, 'Все задачи запускаются по этому времени')
-      ),
-      React.createElement('button', { onClick: () => {
-        setWebhook('');
-        setTasks([]);
-        setLogs([]);
-      }}, 'Изменить вебхук')
     ),
 
     showModal && React.createElement(TaskModal, {
@@ -482,7 +395,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
                   }
                 }, stage.name);
               }) :
-              React.createElement('p', { style: { color: '#999' } }, 'Нет доступных стадий. Проверьте вебхук.')
+              React.createElement('p', { style: { color: '#999' } }, 'Нет доступных стадий. Проверьте подключение к серверу.')
           )
         ),
 
@@ -495,7 +408,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
             required: true
           }),
           React.createElement('small', { style: { color: '#5f6368', display: 'block', marginTop: '5px' } }, 
-            'Ваше время (UTC+7). Будет автоматически преобразовано к серверному времени'
+            'Часовой пояс: ' + SERVER_TIMEZONE + ' (будет преобразовано к серверному времени)'
           )
         ),
 

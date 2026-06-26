@@ -27,24 +27,11 @@ async function saveConfig(config) {
   await fs.writeFile(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
-// Функция для получения вебхука из заголовка
-function getWebhookFromHeaders(req) {
-  const encoded = req.headers['x-webhook-encoded'];
-  if (!encoded) {
-    return null;
-  }
-  
-  try {
-    const decoded = decodeURIComponent(escape(Buffer.from(encoded, 'base64').toString('utf8')));
-    return decoded;
-  } catch (error) {
-    console.error('Error decoding webhook:', error);
-    return null;
-  }
-}
+// Вебхук хранится только на сервере (переменные окружения)
+const WEBHOOK = process.env.BITRIX_WEBHOOK;
 
 // API для работы с Битрикс24 через вебхук
-async function callBitrixApi(webhook, method, params = {}) {
+async function callBitrixApi(WEBHOOK, method, params = {}) {
   if (!webhook) {
     throw new Error('Webhook not provided');
   }
@@ -103,7 +90,7 @@ async function getAllElements(webhook, entityTypeId, stages) {
     
     let result;
     try {
-      result = await callBitrixApi(webhook, 'crm.item.list', {
+      result = await callBitrixApi(WEBHOOK, 'crm.item.list', {
         entityTypeId: entityTypeId,
         filter: {
           stageId: stages
@@ -154,14 +141,13 @@ async function getAllElements(webhook, entityTypeId, stages) {
 // Получение стадий для ЭДО
 app.get('/api/stages/:entityTypeId', async (req, res) => {
   try {
-    const webhook = getWebhookFromHeaders(req);
-    if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
+    if (!WEBHOOK) {
+      return res.status(500).json({ error: 'BITRIX_WEBHOOK not configured on server' });
     }
     
     const { entityTypeId } = req.params;
     
-    const result = await callBitrixApi(webhook, 'crm.status.list', {
+    const result = await callBitrixApi(WEBHOOK, 'crm.status.list', {
       order: { SORT: 'ASC' }
     });
     
@@ -189,14 +175,13 @@ app.get('/api/stages/:entityTypeId', async (req, res) => {
 // Получение бизнес-процессов для ЭДО
 app.get('/api/business-processes/:entityTypeId', async (req, res) => {
   try {
-    const webhook = getWebhookFromHeaders(req);
-    if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
+    if (!WEBHOOK) {
+      return res.status(500).json({ error: 'BITRIX_WEBHOOK not configured on server' });
     }
     
     const { entityTypeId } = req.params;
     
-    const result = await callBitrixApi(webhook, 'bizproc.workflow.template.list', {
+    const result = await callBitrixApi(WEBHOOK, 'bizproc.workflow.template.list', {
       select: ['ID', 'NAME', 'DESCRIPTION', 'MODULE_ID', 'ENTITY'],
       limit: 100
     });
@@ -228,9 +213,8 @@ app.get('/api/business-processes/:entityTypeId', async (req, res) => {
 // Подсчёт сущностей в стадиях
 app.post('/api/tasks/:id/count', async (req, res) => {
   try {
-    const webhook = getWebhookFromHeaders(req);
-    if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
+    if (!WEBHOOK) {
+      return res.status(500).json({ error: 'BITRIX_WEBHOOK not configured on server' });
     }
     
     const config = await loadConfig();
@@ -331,10 +315,9 @@ app.delete('/api/tasks/:id', async (req, res) => {
 app.post('/api/tasks/:id/run', async (req, res) => {
   try {
     const config = await loadConfig();
-    const webhook = getWebhookFromHeaders(req);
     
-    if (!webhook) {
-      return res.status(400).json({ error: 'Webhook not provided. Use X-Webhook-Encoded header' });
+    if (!WEBHOOK) {
+      return res.status(500).json({ error: 'BITRIX_WEBHOOK not configured on server' });
     }
     
     const taskId = parseInt(req.params.id);
@@ -344,7 +327,7 @@ app.post('/api/tasks/:id/run', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    const result = await runTask(config, task, webhook);
+    const result = await runTask(config, task);
     res.json(result);
   } catch (error) {
     console.error('Error running task:', error);
@@ -428,7 +411,7 @@ async function runTask(config, task, webhook) {
         
         console.log('Starting BP for item:', item.id, 'with documentId:', documentId);
         
-        const result = await callBitrixApi(webhook, 'bizproc.workflow.start', {
+        const result = await callBitrixApi(WEBHOOK, 'bizproc.workflow.start', {
           TEMPLATE_ID: task.bpId,
           DOCUMENT_ID: documentId
         });
@@ -518,7 +501,7 @@ async function initCronJobs() {
     cronJobs[task.id] = cron.schedule(cronExpression, async () => {
       console.log('Running scheduled task: ' + task.smartProcessName);
       try {
-        await runTask(config, task, webhook);
+        await runTask(config, task);
       } catch (error) {
         console.error('Scheduled task error:', error);
       }
