@@ -82,7 +82,7 @@ export async function initDB() {
         )
       `);
       
-      -- Add missing columns to existing table
+      // Add missing columns to existing table
       await client.query(`
         ALTER TABLE tasks 
         ADD COLUMN IF NOT EXISTS is_running BOOLEAN DEFAULT false,
