@@ -58,7 +58,7 @@ async function saveConfig(config) {
 const WEBHOOK = process.env.BITRIX_WEBHOOK;
 
 // API для работы с Битрикс24 через вебхук
-async function callBitrixApi(WEBHOOK, method, params = {}) {
+async function callBitrixApi(webhook, method, params = {}) {
   if (!webhook) {
     throw new Error('Webhook not provided');
   }
