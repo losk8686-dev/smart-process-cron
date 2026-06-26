@@ -112,9 +112,9 @@ export async function loadConfig() {
           bpName: row.bp_name,
           active: row.active,
           isRunning: row.is_running || false,
-          runStartedAt: row.run_started_at,
-          createdAt: row.created_at,
-          lastRun: row.last_run,
+          runStartedAt: row.run_started_at ? row.run_started_at.toISOString() : null,
+          createdAt: row.created_at ? row.created_at.toISOString() : null,
+          lastRun: row.last_run ? row.last_run.toISOString() : null,
           lastResult: row.last_result
         })),
         logs: logsResult.rows.map(row => ({
