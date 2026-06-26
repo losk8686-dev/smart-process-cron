@@ -69,7 +69,8 @@ function App() {
       for (const task of tasksData) {
         try {
           const countRes = await fetch('/api/tasks/' + task.id + '/count', {
-            method: 'POST'
+            method: 'POST',
+            credentials: 'include'
           });
           const countData = await countRes.json();
           counts[task.id] = countData.count || 0;
@@ -95,7 +96,8 @@ function App() {
     setLoading(true);
     try {
       const res = await fetch('/api/tasks/' + taskId + '/run', { 
-        method: 'POST'
+        method: 'POST',
+        credentials: 'include'
       });
       const data = await res.json();
       
@@ -120,6 +122,7 @@ function App() {
     try {
       const res = await fetch('/api/tasks/' + task.id, {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: !task.active })
       });
@@ -140,7 +143,7 @@ function App() {
     if (!confirm('Удалить задачу?')) return;
     
     try {
-      await fetch('/api/tasks/' + taskId, { method: 'DELETE' });
+      await fetch('/api/tasks/' + taskId, { method: 'DELETE', credentials: 'include' });
       setStatus({ type: 'success', message: 'Задача удалена' });
       loadData();
     } catch (err) {
@@ -345,6 +348,7 @@ function TaskModal({ stages, businessProcesses, onClose, onSave }) {
       setLoading(true);
       const res = await fetch('/api/tasks', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(task)
       });
