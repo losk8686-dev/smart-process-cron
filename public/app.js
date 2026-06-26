@@ -36,7 +36,7 @@ function App() {
       if (hasRunning) {
         loadData();
       }
-    }, 10000);
+    }, 60000);
     
     return () => clearInterval(interval);
   }, [tasks]);
