@@ -99,7 +99,7 @@ async function callBitrixApi(webhook, method, params = {}) {
 }
 
 // Функция для получения ВСЕХ элементов с пагинацией
-async function getAllElements(webhook, entityTypeId, stages) {
+async function getAllElements(WEBHOOK, entityTypeId, stages) {
   const allItems = [];
   let start = 0;
   const limit = 50;
@@ -252,7 +252,7 @@ app.post('/api/tasks/:id/count', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    const allItems = await getAllElements(webhook, task.entityTypeId, task.stages);
+    const allItems = await getAllElements(WEBHOOK, task.entityTypeId, task.stages);
     
     res.json({
       count: allItems.length,
@@ -421,7 +421,7 @@ async function runTask(config, task, webhook) {
   
   try {
     // Получаем ВСЕ элементы с пагинацией
-    const allItems = await getAllElements(webhook, task.entityTypeId, task.stages);
+    const allItems = await getAllElements(WEBHOOK, task.entityTypeId, task.stages);
     
     log.details.push('Найдено элементов: ' + allItems.length);
     
