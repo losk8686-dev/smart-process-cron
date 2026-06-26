@@ -445,6 +445,11 @@ app.get('/api/cron-status', async (req, res) => {
 
 // Функция запуска задачи - ИСПРАВЛЕННАЯ
 async function runTask(config, task, webhook) {
+  // Mark task as running
+  task.isRunning = true;
+  task.runStartedAt = new Date().toISOString();
+  await saveTask(task);
+  
   const log = {
     id: Date.now(),
     taskId: task.id,
@@ -502,6 +507,8 @@ async function runTask(config, task, webhook) {
     
     task.lastRun = new Date().toISOString();
     task.lastResult = log.result;
+    task.isRunning = false;
+    task.runStartedAt = null;
     
     await saveTask(task);  // Сохраняем обновлённую задачу
     await saveLog(log);
@@ -511,9 +518,11 @@ async function runTask(config, task, webhook) {
     log.status = 'error';
     log.details.push('Ошибка: ' + error.message);
     
-    config.logs = config.logs || [];
-    config.logs.unshift(log);
-    await saveConfig(config);
+    task.isRunning = false;
+    task.runStartedAt = null;
+    await saveTask(task);
+    
+    await saveLog(log);
     
     throw error;
   }
