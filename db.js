@@ -135,9 +135,14 @@ export async function loadConfig() {
 }
 
 export async function saveTask(task) {
+  console.log('saveTask called with isRunning:', task.isRunning, 'type:', typeof task.isRunning);
+  
   if (usePostgreSQL && pool) {
     const client = await pool.connect();
     try {
+      const isRunningValue = task.isRunning === true ? true : false;
+      console.log('Saving isRunning as:', isRunningValue);
+      
       await client.query(`
         INSERT INTO tasks (id, entity_type_id, smart_process_name, stages, stages_names, run_time, bp_id, bp_name, active, is_running, run_started_at, created_at, last_run, last_result)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
@@ -158,7 +163,7 @@ export async function saveTask(task) {
         task.id, task.entityTypeId, task.smartProcessName,
         JSON.stringify(task.stages), JSON.stringify(task.stagesNames),
         task.runTime, task.bpId, task.bpName, task.active,
-        task.isRunning || false, task.runStartedAt,
+        isRunningValue, task.runStartedAt,
         task.createdAt, task.lastRun, JSON.stringify(task.lastResult)
       ]);
     } finally {
