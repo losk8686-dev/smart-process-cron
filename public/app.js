@@ -10,7 +10,12 @@ const SERVER_TIMEZONE = 'UTC+7';
 // Функция для отображения времени с учетом часового пояса
 function formatTime(timeString) {
   if (!timeString) return 'Не запускалась';
+  if (typeof timeString === 'object') {
+    // Если пришел объект, берем timestamp или возвращаем строку
+    timeString = timeString.timestamp || timeString.toString();
+  }
   const date = new Date(timeString);
+  if (isNaN(date.getTime())) return 'Не запускалась';
   return date.toLocaleString('ru-RU', { timeZone: 'Asia/Novosibirsk' }) + ' (UTC+7)';
 }
 
