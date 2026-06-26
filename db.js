@@ -81,6 +81,13 @@ export async function initDB() {
           result JSONB
         )
       `);
+      
+      -- Add missing columns to existing table
+      await client.query(`
+        ALTER TABLE tasks 
+        ADD COLUMN IF NOT EXISTS is_running BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS run_started_at TIMESTAMP
+      `);
     } finally {
       client.release();
     }

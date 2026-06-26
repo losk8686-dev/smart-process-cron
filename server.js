@@ -282,7 +282,9 @@ app.post('/api/tasks', async (req, res) => {
       ...req.body,
       createdAt: new Date().toISOString(),
       lastRun: null,
-      active: true
+      active: true,
+      isRunning: false,
+      runStartedAt: null
     };
     
     await saveTask(task);
