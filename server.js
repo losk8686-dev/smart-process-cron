@@ -540,8 +540,12 @@ async function initCronJobs() {
   
   // Инициализируем PostgreSQL
   try {
-    await initDB();
-    console.log('PostgreSQL connected');
+    if (process.env.DATABASE_URL) {
+      await initDB();
+      console.log('PostgreSQL connected');
+    } else {
+      console.log('DATABASE_URL not set, using file storage');
+    }
   } catch (err) {
     console.error('PostgreSQL connection error:', err.message);
     console.log('Falling back to file storage...');
