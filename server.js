@@ -277,7 +277,6 @@ app.get('/api/tasks', async (req, res) => {
 // Создание задачи
 app.post('/api/tasks', async (req, res) => {
   try {
-    const webhook = getWebhookFromHeaders(req);
     const config = await loadConfig();
     const task = {
       id: Date.now(),
