@@ -444,7 +444,7 @@ async function runTask(config, task, webhook) {
         started++;
         
         // Задержка между запусками чтобы не перегружать API
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 3000)); // Пауза 3 секунды между запусками БП
         
       } catch (error) {
         console.error('Error starting BP for element ' + item.id + ':', error);
