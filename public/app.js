@@ -30,16 +30,13 @@ function App() {
   useEffect(() => {
     loadData();
     
-    // Автообновление каждые 10 секунд если есть выполняющиеся задачи
+    // Автообновление каждую минуту
     const interval = setInterval(() => {
-      const hasRunning = tasks.some(t => t.isRunning);
-      if (hasRunning) {
-        loadData();
-      }
+      loadData();
     }, 60000);
     
     return () => clearInterval(interval);
-  }, [tasks]);
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
