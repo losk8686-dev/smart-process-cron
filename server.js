@@ -382,6 +382,22 @@ app.get('/api/webhook', async (req, res) => {
   }
 });
 
+// Диагностика env vars (безопасно - не показываем секреты)
+app.get('/api/env-check', async (req, res) => {
+  try {
+    res.json({
+      bitrixWebhookSet: !!process.env.BITRIX_WEBHOOK,
+      bitrixWebhookLength: process.env.BITRIX_WEBHOOK ? process.env.BITRIX_WEBHOOK.length : 0,
+      authUserSet: !!process.env.AUTH_USER,
+      authPassSet: !!process.env.AUTH_PASS,
+      nodeEnv: process.env.NODE_ENV,
+      port: process.env.PORT || 3000
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Проверка статуса крона
 app.get('/api/cron-status', async (req, res) => {
   try {
