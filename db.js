@@ -104,7 +104,7 @@ export async function loadConfig() {
           bpId: row.bp_id,
           bpName: row.bp_name,
           active: row.active,
-          isRunning: row.is_running,
+          isRunning: row.is_running || false,
           runStartedAt: row.run_started_at,
           createdAt: row.created_at,
           lastRun: row.last_run,
@@ -132,8 +132,8 @@ export async function saveTask(task) {
     const client = await pool.connect();
     try {
       await client.query(`
-        INSERT INTO tasks (id, entity_type_id, smart_process_name, stages, stages_names, run_time, bp_id, bp_name, active, created_at, last_run, last_result)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        INSERT INTO tasks (id, entity_type_id, smart_process_name, stages, stages_names, run_time, bp_id, bp_name, active, is_running, run_started_at, created_at, last_run, last_result)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (id) DO UPDATE SET
           entity_type_id = EXCLUDED.entity_type_id,
           smart_process_name = EXCLUDED.smart_process_name,
@@ -143,12 +143,15 @@ export async function saveTask(task) {
           bp_id = EXCLUDED.bp_id,
           bp_name = EXCLUDED.bp_name,
           active = EXCLUDED.active,
+          is_running = EXCLUDED.is_running,
+          run_started_at = EXCLUDED.run_started_at,
           last_run = EXCLUDED.last_run,
           last_result = EXCLUDED.last_result
       `, [
         task.id, task.entityTypeId, task.smartProcessName,
         JSON.stringify(task.stages), JSON.stringify(task.stagesNames),
         task.runTime, task.bpId, task.bpName, task.active,
+        task.isRunning || false, task.runStartedAt,
         task.createdAt, task.lastRun, JSON.stringify(task.lastResult)
       ]);
     } finally {
