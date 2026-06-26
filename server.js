@@ -503,6 +503,7 @@ async function runTask(config, task, webhook) {
     task.lastRun = new Date().toISOString();
     task.lastResult = log.result;
     
+    await saveTask(task);  // Сохраняем обновлённую задачу
     await saveLog(log);
     
     return log;
