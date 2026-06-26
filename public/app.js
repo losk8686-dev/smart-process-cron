@@ -29,7 +29,17 @@ function App() {
   // Загружаем данные при старте
   useEffect(() => {
     loadData();
-  }, []);
+    
+    // Автообновление каждые 10 секунд если есть выполняющиеся задачи
+    const interval = setInterval(() => {
+      const hasRunning = tasks.some(t => t.isRunning);
+      if (hasRunning) {
+        loadData();
+      }
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [tasks]);
 
   const loadData = async () => {
     setLoading(true);

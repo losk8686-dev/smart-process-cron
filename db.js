@@ -63,6 +63,8 @@ export async function initDB() {
           bp_id VARCHAR(50),
           bp_name VARCHAR(255),
           active BOOLEAN DEFAULT true,
+          is_running BOOLEAN DEFAULT false,
+          run_started_at TIMESTAMP,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           last_run TIMESTAMP,
           last_result JSONB
@@ -102,6 +104,8 @@ export async function loadConfig() {
           bpId: row.bp_id,
           bpName: row.bp_name,
           active: row.active,
+          isRunning: row.is_running,
+          runStartedAt: row.run_started_at,
           createdAt: row.created_at,
           lastRun: row.last_run,
           lastResult: row.last_result
