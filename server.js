@@ -43,43 +43,52 @@ app.use(basicAuth);
 const WEBHOOK = process.env.BITRIX_WEBHOOK;
 
 // API для работы с Битрикс24 через вебхук
-async function callBitrixApi(webhook, method, params = {}) {
+async function callBitrixApi(webhook, method, params = {}, retries = 3) {
   if (!webhook) {
     throw new Error('Webhook not provided');
   }
   
   const url = webhook.endsWith('/') ? webhook : webhook + '/';
   
-  // Таймаут для запроса (30 секунд)
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
-  
-  try {
-    const response = await fetch(url + method, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-      signal: controller.signal
-    });
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    // Таймаут для запроса (60 секунд)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
     
-    clearTimeout(timeout);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+      const response = await fetch(url + method, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeout);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error_description || data.error);
+      }
+      
+      return data.result;
+    } catch (error) {
+      clearTimeout(timeout);
+      
+      if (attempt === retries) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - Битрикс24 не отвечает более 60 секунд');
+        }
+        throw error;
+      }
+      
+      // Ждём перед повторной попыткой
+      console.log(`API attempt ${attempt} failed, retrying in ${attempt * 2}s...`);
+      await new Promise(resolve => setTimeout(resolve, attempt * 2000));
     }
-    
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error_description || data.error);
-    }
-    
-    return data.result;
-  } catch (error) {
-    clearTimeout(timeout);
-    if (error.name === 'AbortError') {
-      throw new Error('Request timeout - Битрикс24 не отвечает более 30 секунд');
-    }
-    throw error;
   }
 }
 
