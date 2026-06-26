@@ -353,7 +353,7 @@ app.post('/api/tasks/:id/run', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    const result = await runTask(config, task);
+    const result = await runTask(config, task, webhook);
     res.json(result);
   } catch (error) {
     console.error('Error running task:', error);
@@ -421,7 +421,7 @@ async function runTask(config, task, webhook) {
   
   try {
     // Получаем ВСЕ элементы с пагинацией
-    const allItems = await getAllElements(WEBHOOK, task.entityTypeId, task.stages);
+    const allItems = await getAllElements(webhook, task.entityTypeId, task.stages);
     
     log.details.push('Найдено элементов: ' + allItems.length);
     
@@ -437,7 +437,7 @@ async function runTask(config, task, webhook) {
         
         console.log('Starting BP for item:', item.id, 'with documentId:', documentId);
         
-        const result = await callBitrixApi(WEBHOOK, 'bizproc.workflow.start', {
+        const result = await callBitrixApi(webhook, 'bizproc.workflow.start', {
           TEMPLATE_ID: task.bpId,
           DOCUMENT_ID: documentId
         });
@@ -527,7 +527,7 @@ async function initCronJobs() {
     cronJobs[task.id] = cron.schedule(cronExpression, async () => {
       console.log('Running scheduled task: ' + task.smartProcessName);
       try {
-        await runTask(config, task);
+        await runTask(config, task, webhook);
       } catch (error) {
         console.error('Scheduled task error:', error);
       }
