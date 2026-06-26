@@ -152,7 +152,7 @@ function App() {
   if (!serverConnected && !loading) {
     return React.createElement('div', { className: 'container' },
       React.createElement('div', { className: 'header' },
-        React.createElement('h1', null, 'Smart Process Cron - ЭДО'),
+        React.createElement('h1', null, 'Автоматический запуск Бизнес-процессов по таймеру'),
         React.createElement('p', null, 'Автоматический запуск бизнес-процессов для ЭДО')
       ),
       React.createElement('div', { className: 'card' },
@@ -167,8 +167,8 @@ function App() {
 
   return React.createElement('div', { className: 'container' },
     React.createElement('div', { className: 'header' },
-      React.createElement('h1', null, 'Smart Process Cron - ЭДО'),
-      React.createElement('p', null, 'Автоматический запуск бизнес-процессов для цифрового рабочего места ЭДО')
+      React.createElement('h1', null, 'Автоматический запуск Бизнес-процессов по таймеру'),
+      React.createElement('p', null, 'Разработчик Goldpartner24.ru - профессиональные интеграторы Битрикс24!')
     ),
 
     status.message && React.createElement('div', { className: 'status ' + status.type, style: { marginBottom: '20px' } }, status.message),
