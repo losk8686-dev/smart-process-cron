@@ -293,8 +293,8 @@ app.put('/api/tasks/:id', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    config.tasks[index] = { ...config.tasks[index], ...req.body };
-    await saveConfig(config);
+    const updatedTask = { ...config.tasks[index], ...req.body };
+    await saveTask(updatedTask);
     
     await initCronJobs();
     
