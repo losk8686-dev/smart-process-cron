@@ -335,7 +335,7 @@ app.post('/api/tasks/:id/run', async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
     
-    const result = await runTask(config, task, webhook);
+    const result = await runTask(config, task, WEBHOOK);
     res.json(result);
   } catch (error) {
     console.error('Error running task:', error);
@@ -376,6 +376,38 @@ app.get('/api/env-check', async (req, res) => {
       port: process.env.PORT || 3000
     });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Тестовый endpoint для проверки API
+app.get('/api/test-elements/:entityTypeId', async (req, res) => {
+  try {
+    if (!WEBHOOK) {
+      return res.status(500).json({ error: 'WEBHOOK not configured' });
+    }
+    
+    const { entityTypeId } = req.params;
+    
+    // Пробуем получить элементы без фильтра
+    const result = await callBitrixApi(WEBHOOK, 'crm.item.list', {
+      entityTypeId: entityTypeId,
+      limit: 5
+    });
+    
+    const items = Array.isArray(result.items) ? result.items : [];
+    
+    res.json({
+      total: result.total || items.length,
+      returned: items.length,
+      sample: items.slice(0, 2).map(item => ({
+        id: item.id,
+        title: item.title || item.name || 'No title',
+        stageId: item.stageId || item.ufCrmStage || 'No stage'
+      }))
+    });
+  } catch (error) {
+    console.error('Test API error:', error);
     res.status(500).json({ error: error.message });
   }
 });
