@@ -456,10 +456,22 @@ app.get('/api/cron-status', async (req, res) => {
 
 // Функция запуска задачи - ИСПРАВЛЕННАЯ
 async function runTask(config, task, webhook) {
+  console.log('=== runTask START ===');
+  console.log('Task ID:', task.id);
+  console.log('Task isRunning BEFORE:', task.isRunning);
+  
   // Mark task as running
   task.isRunning = true;
   task.runStartedAt = new Date().toISOString();
-  await saveTask(task);
+  
+  console.log('Task isRunning AFTER SET:', task.isRunning);
+  
+  try {
+    await saveTask(task);
+    console.log('Task saved successfully with isRunning=true');
+  } catch (err) {
+    console.error('Error saving task:', err);
+  }
   
   const log = {
     id: Date.now(),
@@ -520,6 +532,10 @@ async function runTask(config, task, webhook) {
     task.lastResult = log.result;
     task.isRunning = false;
     task.runStartedAt = null;
+    
+    console.log('=== runTask END ===');
+    console.log('Task isRunning at end:', task.isRunning);
+    console.log('Task lastRun:', task.lastRun);
     
     await saveTask(task);  // Сохраняем обновлённую задачу
     await saveLog(log);
