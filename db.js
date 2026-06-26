@@ -60,15 +60,15 @@ export async function loadConfig() {
         id: row.id,
         entityTypeId: row.entity_type_id,
         smartProcessName: row.smart_process_name,
-        stages: row.stages,
-        stagesNames: row.stages_names,
+        stages: typeof row.stages === 'string' ? JSON.parse(row.stages) : row.stages,
+        stagesNames: typeof row.stages_names === 'string' ? JSON.parse(row.stages_names) : row.stages_names,
         runTime: row.run_time,
         bpId: row.bp_id,
         bpName: row.bp_name,
         active: row.active,
         createdAt: row.created_at,
         lastRun: row.last_run,
-        lastResult: row.last_result
+        lastResult: typeof row.last_result === 'string' ? JSON.parse(row.last_result) : row.last_result
       })),
       logs: logsResult.rows.map(row => ({
         id: row.id,
