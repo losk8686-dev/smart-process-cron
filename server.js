@@ -1,8 +1,8 @@
 import express from 'express';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'fs/promises';
 import cron from 'node-cron';
+import { initDB, loadConfig, saveTask, deleteTask, saveLog } from './db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -37,22 +37,7 @@ function basicAuth(req, res, next) {
 // Применяем Basic Auth ко всем маршрутам
 app.use(basicAuth);
 
-// Хранилище конфигурации
-const CONFIG_FILE = join(__dirname, 'data', 'config.json');
-
-async function loadConfig() {
-  try {
-    const data = await fs.readFile(CONFIG_FILE, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    return { tasks: [], logs: [] };
-  }
-}
-
-async function saveConfig(config) {
-  await fs.mkdir(dirname(CONFIG_FILE), { recursive: true });
-  await fs.writeFile(CONFIG_FILE, JSON.stringify(config, null, 2));
-}
+// Конфигурация теперь в PostgreSQL (см. db.js)
 
 // Вебхук хранится только на сервере (переменные окружения)
 const WEBHOOK = process.env.BITRIX_WEBHOOK;
@@ -286,9 +271,7 @@ app.post('/api/tasks', async (req, res) => {
       active: true
     };
     
-    config.tasks = config.tasks || [];
-    config.tasks.push(task);
-    await saveConfig(config);
+    await saveTask(task);
     
     // Переинициализируем крон после создания задачи
     await initCronJobs();
@@ -326,8 +309,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
   try {
     const config = await loadConfig();
     const taskId = parseInt(req.params.id);
-    config.tasks = config.tasks.filter(t => t.id !== taskId);
-    await saveConfig(config);
+    await deleteTask(taskId);
     
     await initCronJobs();
     
@@ -484,13 +466,7 @@ async function runTask(config, task, webhook) {
     task.lastRun = new Date().toISOString();
     task.lastResult = log.result;
     
-    config.logs = config.logs || [];
-    config.logs.unshift(log);
-    if (config.logs.length > 100) {
-      config.logs = config.logs.slice(0, 100);
-    }
-    
-    await saveConfig(config);
+    await saveLog(log);
     
     return log;
   } catch (error) {
@@ -561,6 +537,16 @@ async function initCronJobs() {
   console.log('Current time:', new Date().toISOString());
   console.log('Timezone offset:', new Date().getTimezoneOffset(), 'minutes');
   console.log('BITRIX_WEBHOOK env:', process.env.BITRIX_WEBHOOK ? 'Set' : 'Not set');
+  
+  // Инициализируем PostgreSQL
+  try {
+    await initDB();
+    console.log('PostgreSQL connected');
+  } catch (err) {
+    console.error('PostgreSQL connection error:', err.message);
+    console.log('Falling back to file storage...');
+  }
+  
   await initCronJobs();
 })();
 
